@@ -1,6 +1,7 @@
 import React, {
   useState, useEffect, useCallback, useMemo, useRef,
 } from 'react'
+import { Plus, X } from '@openai/apps-sdk-ui/components/Icon'
 // Workout — thin shell. The pure, headless logic lives in logic.js (the unit-
 // test target, listed in mobius.json source_files). UI components, the theme,
 // the storage adapter, the embedded-agent prompt, and the display/analytics
@@ -986,7 +987,9 @@ export default function App({ appId, token }) {
                             <strong>Session saved</strong>
                             <span>What changed, exercise by exercise.</span>
                           </div>
-                          <button type="button" className="wk-icon-btn" onClick={() => setSavedRecap(null)} aria-label="Dismiss session recap">×</button>
+                          <button type="button" className="wk-icon-btn" onClick={() => setSavedRecap(null)} aria-label="Dismiss session recap">
+                            <X width="1em" height="1em" aria-hidden="true" />
+                          </button>
                         </div>
                         <div className="wk-session-recap-list">
                           {savedRecap.map((row) => (
@@ -1047,7 +1050,7 @@ export default function App({ appId, token }) {
         {tab === 'session' && !editingEntry && !quickAddDraft && !chatOnSessionTab && (
           <div className="wk-mobile-action-dock">
             <button type="button" onClick={() => openQuickAdd(null, null)}>
-              <span aria-hidden>+</span>
+              <Plus aria-hidden="true" />
               Add activity
             </button>
           </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { X } from '@openai/apps-sdk-ui/components/Icon'
 import { CATEGORIES } from '../logic.js'
 import { detailHistorySummary, detailRecordTiles, detailTrend, fmtWeight, shortDate } from '../format.js'
 import { Sparkline } from './Sparkline.jsx'
@@ -62,7 +63,9 @@ export function ExerciseDetailSheet({ detail, onClose }) {
               </p>
             </div>
           </div>
-          <button ref={closeRef} className="wk-icon-btn" onClick={onClose} aria-label="Close" title="Close">×</button>
+          <button ref={closeRef} className="wk-icon-btn" onClick={onClose} aria-label="Close" title="Close">
+            <X width="1em" height="1em" aria-hidden="true" />
+          </button>
         </div>
 
         <div className="wk-sheet-body">

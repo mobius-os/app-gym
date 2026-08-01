@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { Check, X } from '@openai/apps-sdk-ui/components/Icon'
 import {
   CATEGORIES, categoryFamily, fromKg, sportIconColor, summarizeMetrics,
 } from '../logic.js'
@@ -161,7 +162,7 @@ export function SessionDraftCard({ entry, previousEntry = null, onDelete, onEdit
                         onSetCompletion?.({ entryId: entry.id, setIndex: i, completed })
                       }}
                     >
-                      <span aria-hidden>{set.completed ? '✓' : ''}</span>
+                      <span aria-hidden>{set.completed ? <Check width="1em" height="1em" /> : null}</span>
                     </button>
                     <span className="wk-set-index">{i + 1}</span>
                     <DraftCell
@@ -235,7 +236,7 @@ export function SessionDraftCard({ entry, previousEntry = null, onDelete, onEdit
           onClick={() => onDelete(entry.id)}
           aria-label={`Remove ${entry.activity} from current session`}
           title="Remove"
-        >×</button>
+        ><X width="1em" height="1em" aria-hidden="true" /></button>
       </div>
     </div>
   )
