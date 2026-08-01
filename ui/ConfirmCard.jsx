@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
+import { Minus, Plus } from '@openai/apps-sdk-ui/components/Icon'
 import {
   ACTIVITY_GROUPS, ACTIVITY_LIBRARY, CATEGORIES, categoryFamily, findActivityLibraryItem,
   fromKg, localDate, normalizeEntry, searchActivityLibrary, sessionEntryMissing,
@@ -413,7 +414,7 @@ export function ConfirmCard({
                   type="button" className="wk-btn-ghost is-muted wk-min44"
                   onClick={() => stepSetCount(-1)} aria-label="Fewer sets"
                   disabled={clampSetCount(setCount) <= 1}
-                >−</button>
+                ><Minus width="1em" height="1em" aria-hidden="true" /></button>
                 <input
                   className="wk-input wk-stepper-input" type="number" inputMode="numeric"
                   min="1" value={setCount}
@@ -424,7 +425,7 @@ export function ConfirmCard({
                 <button
                   type="button" className="wk-btn-ghost is-muted wk-min44"
                   onClick={() => stepSetCount(1)} aria-label="More sets"
-                >+</button>
+                ><Plus width="1em" height="1em" aria-hidden="true" /></button>
               </div>
             </div>
             <div>

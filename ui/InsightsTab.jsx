@@ -1,6 +1,7 @@
 import React, {
   useState, useMemo, useCallback, useEffect, useRef,
 } from 'react'
+import { ChevronRight } from '@openai/apps-sdk-ui/components/Icon'
 import { cardioBests, currentStreak, exerciseDetail, exerciseList, fmtDistance, fmtDuration, fromKg, strengthPRs } from '../logic.js'
 import { categoryStats, weeklyVolumeByCategory } from '../format.js'
 import { CategoryStats } from './CategoryStats.jsx'
@@ -122,7 +123,7 @@ export function InsightsTab({ entries }) {
                 <tr key={p.activity}>
                   <td className="wk-pr-td">
                     <button type="button" className="wk-ex-link" onClick={() => openEx('strength', p.activity)} aria-label={`${p.activity} details`}>
-                      {p.activity}<span className="wk-ex-chevron" aria-hidden>›</span>
+                      {p.activity}<ChevronRight className="wk-ex-chevron" aria-hidden="true" />
                     </button>
                   </td>
                   <td className="wk-pr-td is-right">
@@ -155,7 +156,7 @@ export function InsightsTab({ entries }) {
                 <tr key={c.activity}>
                   <td className="wk-pr-td">
                     <button type="button" className="wk-ex-link" onClick={() => openEx(c.category, c.activity)} aria-label={`${c.activity} details`}>
-                      {c.activity}<span className="wk-ex-chevron" aria-hidden>›</span>
+                      {c.activity}<ChevronRight className="wk-ex-chevron" aria-hidden="true" />
                     </button>
                   </td>
                   <td className="wk-pr-td is-right">

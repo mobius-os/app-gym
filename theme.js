@@ -283,6 +283,7 @@ export const CSS = `
   font-family: var(--font); font-size: 14px; font-weight: 800; cursor: pointer;
   touch-action: manipulation; user-select: none;
 }
+.wk-icon-btn svg { display: block; }
 /* Extend the tap target to a 44px minimum (WCAG 2.5.5) without growing the 32px
    visual box, so the dense entry/header rows stay compact. */
 .wk-icon-btn::before {
@@ -752,7 +753,7 @@ button.wk-pill { cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) {
   .wk-ex-link:active { opacity: 0.75; }
 }
-.wk-ex-chevron { margin-left: 2px; color: var(--muted); font-weight: 700; }
+.wk-ex-chevron { width: 14px; height: 14px; margin-left: 2px; color: var(--muted); }
 
 /* Per-exercise detail sheet (Hevy-style drill-down) — Sheet variant: centered,
    all-corner radius, full-height column with its own scroll body. */
@@ -909,7 +910,7 @@ button.wk-pill { cursor: pointer; }
   font-family: var(--font); font-size: 14px; font-weight: 800;
   cursor: pointer; touch-action: manipulation;
 }
-.wk-add-activity-primary span { font-size: 18px; line-height: 1; }
+.wk-add-activity-primary svg { width: 18px; height: 18px; }
 .wk-quick-add.is-empty .wk-quick-chip-row { justify-content: center; }
 .wk-quick-add.is-empty .wk-add-activity-primary {
   min-width: min(100%, 240px);
@@ -1027,7 +1028,7 @@ button.wk-pill { cursor: pointer; }
     background: var(--accent-hover, var(--accent)); color: var(--accent-fg);
     font: 800 15px/1 var(--font); cursor: pointer; touch-action: manipulation;
   }
-  .wk-mobile-action-dock button span { font-size: 19px; line-height: 1; }
+  .wk-mobile-action-dock button svg { width: 19px; height: 19px; }
 }
 
 /* mobius-ui:ReducedMotion v1 -- honor the OS reduce-motion setting */

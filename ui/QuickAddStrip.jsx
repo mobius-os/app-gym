@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { Plus } from '@openai/apps-sdk-ui/components/Icon'
 import { recentExercises } from '../logic.js'
 import { SportIcon } from './SportIcon.jsx'
 
@@ -14,7 +15,7 @@ export function QuickAddStrip({ entries, onQuickAdd, hasActiveEntries = false })
         <p className="wk-quick-add-copy">Add your first activity. You can adjust every set as you train.</p>
         <div className="wk-quick-chip-row">
           <button type="button" className="wk-add-activity-primary" onClick={() => onQuickAdd(null, null)}
-            aria-label="Browse activity library"><span aria-hidden>+</span> Add first activity</button>
+            aria-label="Browse activity library"><Plus aria-hidden="true" /> Add first activity</button>
         </div>
       </section>
     )
@@ -43,7 +44,7 @@ export function QuickAddStrip({ entries, onQuickAdd, hasActiveEntries = false })
       </div>
       <button type="button" className="wk-add-activity-primary" onClick={() => onQuickAdd(null, null)}
         aria-label="Browse activity library">
-        <span aria-hidden>+</span> {hasActiveEntries ? 'Add another activity' : 'Add activity'}
+        <Plus aria-hidden="true" /> {hasActiveEntries ? 'Add another activity' : 'Add activity'}
       </button>
     </section>
   )
