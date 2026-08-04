@@ -74,7 +74,7 @@ Tests are portable across a fresh clone on Node 22+:
 
 - `__tests__/logic.test.mjs` — the pure logic and display helpers (imports `logic.js` + `format.js` directly).
 - `tests/gym.test.mjs` — a focused normalize / merge / summarize smoke.
-- `test-integrity.mjs` — the CAS zero-loss acceptance gate. It drives the **real** `createSessionController` and the **real** platform `useDocument` hook against a CAS-aware mock store with true If-Match/412 semantics, so it needs the platform runtime `mobius-runtime.js`. It is discovered from the Möbius checkout by default; set `MOBIUS_RUNTIME` to a file URL or path to point it elsewhere (and `ESBUILD_BIN` if `esbuild` isn't on the default path).
+- `test-integrity.mjs` — the CAS zero-loss acceptance gate. It drives the **real** `createSessionController` and the **real** platform `useDocument` hook against a CAS-aware mock store with true If-Match/412 semantics, so it needs the platform runtime `mobius-runtime.js`. It is discovered from the Möbius checkout by default; set `MOBIUS_RUNTIME` to a file URL or path to point it elsewhere, or `MOBIUS_FRONTEND_NODE_MODULES` at the shell's installed frontend.
 
 ## License
 
