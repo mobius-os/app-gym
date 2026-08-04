@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 
 // logic.js is pure ESM with no external imports — it is exactly the headless
 // module Mobius installs via mobius.json source_files — so it imports directly.
-// The old esbuild bundle-then-import step added nothing over a direct import
-// (there is nothing to bundle) and pinned an absolute esbuild path + NODE_PATH,
-// which broke a fresh clone; the direct import is portable and the same code.
+// An earlier bundle-then-import step added nothing over a direct import (there
+// is nothing to bundle) and pinned an absolute compiler path + NODE_PATH, which
+// broke a fresh clone; the direct import is portable and the same code.
 import {
   normalizeEntry,
   normalizeStoredEntries,
