@@ -876,7 +876,7 @@ export default function App({ appId, token }) {
             alt=""
             width={34}
             height={34}
-            className="wk-brand-icon"
+            className="wk-brand-icon" ref={(el) => el && window.mobius.immersive && window.mobius.immersive.holdToToggle(el)}
             onError={(e) => {
               e.currentTarget.style.display = 'none'
               const f = e.currentTarget.nextElementSibling
