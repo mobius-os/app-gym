@@ -137,6 +137,7 @@ export default function App({ appId, token }) {
   // had stamped ids). Passing this stamped session down, and reconciling each
   // write's fresh base against it below, makes the first tap land.
   const stampedSession = useMemo(() => normalizeCurrentSession(currentSession), [currentSession])
+  const hasDraftEntries = Boolean(stampedSession?.entries?.length)
   const stampedSessionRef = useRef(stampedSession)
   stampedSessionRef.current = stampedSession
 
@@ -1008,8 +1009,8 @@ export default function App({ appId, token }) {
                         </div>
                       </section>
                     )}
-                    <div className={`wk-session-layout${stampedSession ? '' : ' is-empty'}`}>
-                      {stampedSession && (
+                    <div className={`wk-session-layout${hasDraftEntries ? '' : ' is-empty'}`}>
+                      {hasDraftEntries && (
                         <div className="wk-session-main">
                           <CurrentSessionPanel
                             session={stampedSession}
@@ -1028,7 +1029,7 @@ export default function App({ appId, token }) {
                         <QuickAddStrip
                           entries={entries}
                           onQuickAdd={openQuickAdd}
-                          hasActiveEntries={Boolean(stampedSession?.entries?.length)}
+                          hasActiveEntries={hasDraftEntries}
                         />
                       </div>
                     </div>

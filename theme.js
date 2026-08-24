@@ -51,14 +51,14 @@ export const CSS = `
 /* /mobius-ui:Focus */
 
 /* Web cap so desktop gets a proper working canvas while mobile stays direct. */
-.wk-inner { width: 100%; max-width: 1120px; margin-left: auto; margin-right: auto; }
+.wk-inner { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; }
 
 /* mobius-ui:Header v1 — keep in sync; library candidate. Diverge below the marker only. */
 .wk-header {
   flex: 0 0 auto; width: 100%; background: var(--bg); border-bottom: 1px solid var(--border);
 }
 .wk-header-inner {
-  width: 100%; max-width: 1120px; margin-inline: auto;
+  width: 100%; max-width: 760px; margin-inline: auto;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   min-height: 58px;
   padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
@@ -102,8 +102,9 @@ export const CSS = `
 /* mobius-ui:Segmented v1 — keep in sync; library candidate. Diverge below the marker only. */
 .wk-tabbar {
   flex: 0 0 auto;
+  width: min(100%, 760px); margin-inline: auto;
   display: flex; gap: 6px; padding: 8px 12px;
-  background: var(--surface); border-bottom: 1px solid var(--border);
+  background: var(--bg); border-bottom: 1px solid var(--border);
 }
 .wk-tab-btn {
   flex: 1; min-height: 44px; padding: 10px 8px;
@@ -938,26 +939,6 @@ button.wk-pill { cursor: pointer; }
 
 @media (min-width: 840px) {
   .wk-scroll { padding: 18px 22px max(22px, env(safe-area-inset-bottom)); }
-  .wk-session-layout:not(.is-empty) {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-    gap: 18px;
-  }
-  .wk-session-side {
-    position: sticky;
-    top: 0;
-  }
-  .wk-session-side .wk-quick-chip-row {
-    flex-direction: column;
-  }
-  .wk-session-side .wk-quick-chip,
-  .wk-session-side .wk-quick-add-btn,
-  .wk-session-side .wk-add-activity-primary {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  .wk-session-side .wk-quick-add-label .wk-quick-add-btn {
-    width: auto; margin-left: auto; justify-content: center;
-  }
   .wk-confirm-card { padding: 18px; }
 }
 
@@ -1048,15 +1029,14 @@ button.wk-pill { cursor: pointer; }
 @media (min-width: 900px) {
   .wk-root {
     background:
-      linear-gradient(var(--bg), var(--bg)) center / min(100%, 1120px) 100% no-repeat,
+      linear-gradient(var(--bg), var(--bg)) center / min(100%, 760px) 100% no-repeat,
       radial-gradient(ellipse 76% 112% at 50% 46%,
         color-mix(in srgb, var(--accent) 18%, var(--bg)) 0%,
         color-mix(in srgb, var(--accent) 7%, var(--bg)) 46%,
         color-mix(in srgb, var(--text) 2%, var(--bg)) 100%);
 
   }
-  .wk-header { width: min(100%, 1120px); margin-inline: auto; }
-
+  .wk-header { width: min(100%, 760px); margin-inline: auto; }
 }
 /* /mobius-ui:CenteredRail */
 `

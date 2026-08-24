@@ -34,6 +34,16 @@ test('top-level workout tabs expose a roving keyboard tab contract', () => {
   assert.match(source, /role=\{!editingEntry && !quickAddDraft \? 'tabpanel'/)
 })
 
+test('an empty draft presents one add-activity surface instead of a duplicate session card', () => {
+  const source = read('index.jsx')
+  const theme = read('theme.js')
+  assert.match(source, /const hasDraftEntries = Boolean\(stampedSession\?\.entries\?\.length\)/)
+  assert.match(source, /\{hasDraftEntries && \(/)
+  assert.match(source, /hasActiveEntries=\{hasDraftEntries\}/)
+  assert.match(theme, /max-width: 760px/)
+  assert.doesNotMatch(theme, /\.wk-root::before/)
+})
+
 test('live-session numeric fields reject negative browser input and completed sets have a clear undo label', () => {
   const card = read('ui/SessionDraftCard.jsx')
   assert.match(card, /Mark incomplete/)
