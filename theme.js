@@ -55,11 +55,13 @@ export const CSS = `
 
 /* mobius-ui:Header v1 — keep in sync; library candidate. Diverge below the marker only. */
 .wk-header {
-  flex: 0 0 auto;
+  flex: 0 0 auto; width: 100%; background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.wk-header-inner {
+  width: 100%; max-width: 1120px; margin-inline: auto;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   min-height: 58px;
   padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
-  background: var(--surface); border-bottom: 1px solid var(--border);
 }
 .wk-brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .wk-brand-icon { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; flex-shrink: 0; display: block; }
@@ -1041,4 +1043,22 @@ button.wk-pill { cursor: pointer; }
   }
 }
 /* /mobius-ui:ReducedMotion */
+
+/* mobius-ui:CenteredRail v1 */
+@media (min-width: 900px) {
+  .wk-root {
+    background: radial-gradient(ellipse 62% 88% at 50% 48%,
+      color-mix(in srgb, var(--accent) 9%, var(--surface)) 0%,
+      color-mix(in srgb, var(--accent) 3%, var(--surface)) 38%,
+      var(--surface) 100%);
+  }
+  .wk-root::before {
+    content: ""; position: absolute; inset-block: 0; left: 50%;
+    width: min(100%, 1120px); transform: translateX(-50%);
+    background: var(--bg); pointer-events: none;
+  }
+  .wk-header { width: min(100%, 1120px); margin-inline: auto; }
+
+}
+/* /mobius-ui:CenteredRail */
 `

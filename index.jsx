@@ -867,6 +867,7 @@ export default function App({ appId, token }) {
     <div className="wk-root">
       <style>{CSS}</style>
       <div className="wk-header">
+        <div className="wk-header-inner">
         <div className="wk-brand">
           {/* Brand mark: the app's real glossy icon (downscaled + cached)
               beside the shared app-name + status treatment. Falls back to an
@@ -876,7 +877,7 @@ export default function App({ appId, token }) {
             alt=""
             width={34}
             height={34}
-            className="wk-brand-icon" ref={(el) => el && window.mobius.immersive && window.mobius.immersive.holdToToggle(el)}
+            className="wk-brand-icon"
             onError={(e) => {
               e.currentTarget.style.display = 'none'
               const f = e.currentTarget.nextElementSibling
@@ -903,6 +904,7 @@ export default function App({ appId, token }) {
               <ChatBubbleIcon size={22} />
             </button>
           )}
+        </div>
         </div>
       </div>
 
