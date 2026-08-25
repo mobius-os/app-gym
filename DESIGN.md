@@ -237,8 +237,8 @@ The form language is compact and gently rounded without turning navigation into 
 - **Behavior:** Three equal tabs—Workout, History, Exercises—disappear while a workout is active.
 
 ### Buttons and Inputs
-- **Buttons:** `44px` minimum height, `10px` radius, and `10px 16px` padding. Primary actions use accent fill; secondary actions use the secondary surface; ghost actions remain transparent; danger appears only in destructive confirmation.
-- **Home Hierarchy:** New workout is the sole full-width primary action. New routine sits with the Routines heading as a compact secondary action. Each saved routine keeps Start primary while Edit becomes a quiet, pencil-labelled utility.
+- **Buttons:** `44px` minimum height, `10px` radius, and `10px 16px` padding. Primary actions use accent fill; secondary actions retain a visible border and secondary surface; danger appears only in destructive confirmation. Flat interactive styling is reserved for tabs, ledger values, list rows, and the swipe handle rather than standalone actions.
+- **Home Hierarchy:** New workout is the sole full-width primary action. New routine sits with the Routines heading as a compact secondary action. Each saved routine keeps Start primary while Edit is a visible, pencil-labelled secondary button.
 - **States:** Active compresses to `scale(.97)` over `100ms`; disabled is 50% opacity and never transforms. Focus-visible uses a two-pixel accent outline with a two-pixel offset.
 - **Inputs:** `44px` minimum height, `8px` radius, one-pixel border, surface background, and `16px` text to avoid mobile zoom. Numeric set inputs shrink to `40px`, center their text, and use tabular numerals.
 

@@ -89,7 +89,7 @@ function useOnlineStatus() {
 
 function EditorHeader({ title, subtitle, cancel, save, saveDisabled }) {
   return <header className="wk-header"><div className="wk-header-inner wk-editor-header-inner">
-    <button className="wk-btn wk-btn-ghost wk-editor-cancel" onClick={cancel}>Cancel</button>
+    <button className="wk-btn wk-btn-secondary wk-editor-cancel" onClick={cancel}>Cancel</button>
     <div className="wk-brand-text wk-editor-header-copy"><h2 className="wk-title">{title}</h2>{subtitle && <span className="wk-subtitle">{subtitle}</span>}</div>
     <button className="wk-btn wk-btn-primary wk-editor-save" disabled={saveDisabled} onClick={save}>Save</button>
   </div></header>
@@ -433,7 +433,7 @@ export default function App({ appId, token }) {
             </nav>
           </> : <>
             <div className="wk-active-rail-copy"><h1>{active.name}</h1><span><WorkoutElapsed startedAt={active.startedAt} /> · {completedSets} sets done</span></div>
-            <div className="wk-header-right"><button className="wk-btn wk-btn-ghost" onClick={() => setDiscardOpen(true)}>Discard</button><button className="wk-btn wk-btn-primary" disabled={completedSets === 0} onClick={finish}>Finish</button></div>
+            <div className="wk-header-right"><button className="wk-btn wk-btn-secondary" onClick={() => setDiscardOpen(true)}>Discard</button><button className="wk-btn wk-btn-primary" disabled={completedSets === 0} onClick={finish}>Finish</button></div>
           </>}
         </div>
       </header>
@@ -486,7 +486,7 @@ function WorkoutHome({ state, exercises, start, createRoutine, editRoutine }) {
         <article className="wk-routine" key={routine.id}>
           <div className="wk-routine-main"><h3>{routine.name}</h3><p>{routine.exercises.map((item) => findExercise(state, item.exerciseId, exercises).name).join(', ') || 'No exercises yet'}</p></div>
           <div className="wk-routine-actions">
-            <button className="wk-btn wk-btn-ghost wk-routine-edit" aria-label={`Edit ${routine.name} routine`} onClick={() => editRoutine(routine)}><Pencil size={15} />Edit</button>
+            <button className="wk-btn wk-btn-secondary wk-routine-edit" aria-label={`Edit ${routine.name} routine`} onClick={() => editRoutine(routine)}><Pencil size={16} />Edit</button>
             <button className="wk-btn wk-btn-primary wk-routine-start" aria-label={`Start ${routine.name} routine`} disabled={routine.exercises.length === 0} onClick={() => start(routine)}>Start</button>
           </div>
         </article>
@@ -533,7 +533,7 @@ function ActiveWorkout({ active, state, exercises, update, openExercise, saveExe
   return <>
     {restTimer && <aside className={`wk-rest-timer${restTimer.completed ? ' is-complete' : ''}`} aria-label="Rest timer">
       <div><span>{restTimer.completed ? 'Rest complete' : `Rest · ${restTimer.exerciseName}`}</span><strong>{restTimer.completed ? 'Ready' : formatCountdown(Math.max(0, Math.ceil((restTimer.endsAt - clock) / 1000)))}</strong></div>
-      <button className="wk-btn wk-btn-ghost" onClick={() => update((current) => ({ ...current, restTimer: null }))}>{restTimer.completed ? 'Dismiss' : 'Skip'}</button>
+      <button className="wk-btn wk-btn-secondary" onClick={() => update((current) => ({ ...current, restTimer: null }))}>{restTimer.completed ? 'Dismiss' : 'Skip'}</button>
     </aside>}
     {restTimer?.completed && <span className="wk-sr-only" role="status">Rest complete for {restTimer.exerciseName}. Ready for the next set.</span>}
     {active.exercises.length === 0 && <div className="wk-empty"><div className="wk-empty-title">Add your first exercise</div><p className="wk-empty-text">Build this workout as you go. It stays recoverable until you finish or discard it.</p></div>}
@@ -582,7 +582,7 @@ function ExerciseActions({ exercise, item, index, count, close, move, replace, r
   if (!portalRoot) return null
   return createPortal(<div className="wk-scrim" role="dialog" aria-modal="true" aria-label={`Actions for ${exercise.name}`} tabIndex={-1} ref={dialogRef} onClick={close}>
     <div className="wk-sheet wk-action-sheet" onClick={(event) => event.stopPropagation()}>
-      <div className="wk-filter-sheet-head"><div><h3 className="wk-sheet-title">{exercise.name}</h3><p className="wk-sheet-kicker">Manage this workout exercise</p></div><button className="wk-btn wk-btn-ghost wk-sheet-done" onClick={close}>Done</button></div>
+      <div className="wk-filter-sheet-head"><div><h3 className="wk-sheet-title">{exercise.name}</h3><p className="wk-sheet-kicker">Manage this workout exercise</p></div><button className="wk-btn wk-btn-secondary wk-sheet-done" onClick={close}>Done</button></div>
       <div className="wk-action-list">
         <button disabled={index === 0} onClick={() => move(index - 1)}><ArrowUp size={18} /><span><strong>Move up</strong><small>Change the workout order</small></span></button>
         <button disabled={index === count - 1} onClick={() => move(index + 1)}><ArrowDown size={18} /><span><strong>Move down</strong><small>Change the workout order</small></span></button>
@@ -654,7 +654,7 @@ function FilterDialog({ title, options, value, choose, close }) {
   if (!portalRoot) return null
   return createPortal(<div className="wk-scrim" role="dialog" aria-modal="true" aria-label={`Choose ${title.toLowerCase()}`} tabIndex={-1} ref={dialogRef} onClick={close}>
     <div className="wk-sheet wk-filter-sheet" onClick={(event) => event.stopPropagation()}>
-      <div className="wk-filter-sheet-head"><h3 className="wk-sheet-title">{title}</h3><button className="wk-btn wk-btn-ghost wk-sheet-done" onClick={close}>Done</button></div>
+      <div className="wk-filter-sheet-head"><h3 className="wk-sheet-title">{title}</h3><button className="wk-btn wk-btn-secondary wk-sheet-done" onClick={close}>Done</button></div>
       <div className="wk-option-list">{options.map((option) => <button className={`wk-option${option === value ? ' is-selected' : ''}`} key={option} onClick={() => choose(option)}><span>{option === 'All' ? `All ${title.toLowerCase()}` : option}</span>{option === value && <Check size={17} aria-hidden="true" />}</button>)}</div>
     </div>
   </div>, portalRoot)
@@ -713,7 +713,7 @@ function ExercisePicker({ state, exercises, contextExercise = null, query, setQu
   const resetKey = `${query}\u0000${muscle}\u0000${equipment}`
   const { hasMore, sentinelRef, visibleCount } = useProgressiveExerciseList(sections.remaining.length, resetKey)
   return <section className="wk-picker" aria-label="Choose an exercise">
-    <div className="wk-picker-head"><input autoFocus className="wk-input" aria-label="Search exercises" placeholder="Search exercises, muscles, equipment" value={query} onChange={(event) => setQuery(event.target.value)} /><button className="wk-btn wk-btn-ghost wk-picker-cancel" onClick={cancel}>Cancel</button></div>
+    <div className="wk-picker-head"><input autoFocus className="wk-input" aria-label="Search exercises" placeholder="Search exercises, muscles, equipment" value={query} onChange={(event) => setQuery(event.target.value)} /><button className="wk-btn wk-btn-secondary wk-picker-cancel" onClick={cancel}>Cancel</button></div>
     <ExerciseFilters muscle={muscle} setMuscle={setMuscle} muscleOptions={muscleOptions} equipment={equipment} setEquipment={setEquipment} equipmentOptions={equipmentOptions} />
     {!results.length ? <div className="wk-empty wk-picker-empty"><div className="wk-empty-title">No matching exercises</div><p className="wk-empty-text">Try another search or clear a filter.</p></div> : <ExerciseResultSections {...sections} visibleCount={visibleCount} store={store} token={token} action="Preview" open={preview} />}
     {hasMore && <div className="wk-list-sentinel" ref={sentinelRef} aria-hidden="true" />}

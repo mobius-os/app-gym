@@ -57,8 +57,6 @@ export const CSS = `
 .wk-btn-primary:hover { filter:brightness(1.06); }
 .wk-btn-secondary { background:var(--surface2, var(--surface)); }
 .wk-btn-secondary:hover { border-color:color-mix(in srgb,var(--accent) 40%,var(--border)); }
-.wk-btn-ghost { background:transparent; border-color:transparent; color:var(--accent); }
-.wk-btn-ghost:hover { background:color-mix(in srgb,var(--accent) 10%,transparent); }
 .wk-btn-danger { background:var(--danger); border-color:var(--danger); color:var(--accent-fg); }
 .wk-btn-icon { width:44px; padding:0; border-radius:8px; }
 .wk-btn-block { width:100%; }
@@ -100,7 +98,7 @@ export const CSS = `
 .wk-routine { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 16px; align-items:center; padding:16px 0; border-bottom:1px solid var(--border); }
 .wk-routine-main { min-width:0; }
 .wk-routine-actions { display:flex; align-items:center; gap:6px; }
-.wk-routine-edit { justify-content:flex-start; padding-left:0; color:var(--muted); }
+.wk-routine-edit { color:var(--text); }
 .wk-routine-start { min-width:84px; }
 .wk-routine h3,.wk-history-row h3 { margin:0 0 4px; font-size:15px; font-weight:700; letter-spacing:-.01em; }
 .wk-routine p,.wk-history-row p { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
