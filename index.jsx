@@ -474,10 +474,9 @@ export default function App({ appId, token }) {
 
 function WorkoutHome({ state, exercises, start, createRoutine, editRoutine }) {
   return <>
-    <section className="wk-section wk-quick-start">
-      <h2 className="wk-section-title">Quick start</h2>
+    <div className="wk-quick-start">
       <button className="wk-btn wk-btn-primary wk-btn-block wk-new-workout" onClick={() => start(null)}><Plus size={18} />New workout</button>
-    </section>
+    </div>
     <section className="wk-section">
       <div className="wk-section-heading wk-routines-heading">
         <div className="wk-section-heading-copy"><h2 className="wk-section-title">Routines</h2><span>{state.routines.length} saved</span></div>
