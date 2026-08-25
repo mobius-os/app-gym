@@ -95,6 +95,34 @@
       "label": {
         "displayName": "Ledger Metadata",
         "purpose": "Subtitles, previous values, analytics captions, facts, and set headings."
+      },
+      "micro": {
+        "displayName": "Micro Indicator",
+        "purpose": "Tiny progress and thumbnail fallback labels."
+      },
+      "overline": {
+        "displayName": "Set Overline",
+        "purpose": "Dense set and log headings where column width is constrained."
+      },
+      "compact-label": {
+        "displayName": "Compact Label",
+        "purpose": "Tight ledger headings, badges, and progress metadata."
+      },
+      "caption": {
+        "displayName": "Ledger Caption",
+        "purpose": "Secondary row details, timers, and setup-note labels."
+      },
+      "supporting": {
+        "displayName": "Supporting Action",
+        "purpose": "Tabs, filters, and compact secondary actions."
+      },
+      "input": {
+        "displayName": "Mobile-Safe Input",
+        "purpose": "Editable fields sized to prevent mobile viewport zoom."
+      },
+      "empty-title": {
+        "displayName": "Empty-State Title",
+        "purpose": "Focused guidance when a ledger has no entries yet."
       }
     },
     "shadows": [
@@ -183,8 +211,8 @@
       "name": "Primary and Secondary Buttons",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The standard 44px action pair used throughout Workout.",
-      "html": "<div class=\"ds-actions\"><button class=\"ds-btn ds-primary\">Finish</button><button class=\"ds-btn ds-secondary\">Add exercise</button></div>",
+      "description": "The hierarchy keeps New workout as the sole full-width primary action, New routine compact and secondary, and Edit quiet beside a routine's primary Start action.",
+      "html": "<div class=\"ds-actions\"><button class=\"ds-btn ds-primary\">New workout</button><button class=\"ds-btn ds-secondary\">New routine</button></div>",
       "css": ".ds-actions{display:flex;gap:8px}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:10px 16px;border-radius:10px;border:1px solid var(--border);color:var(--text);font:600 14px var(--font);cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .1s ease}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}.ds-primary:hover{filter:brightness(1.06)}.ds-secondary{background:var(--surface2,var(--surface))}.ds-secondary:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}"
     },
     {
@@ -253,6 +281,7 @@
     "keyCharacteristics": [
       "One constrained rail combines the Workout icon and three flat tabs, then becomes the active-workout title and actions.",
       "Three flat 58px tabs use a two-pixel accent underline instead of a pill or lifted selection.",
+      "New workout owns the home primary position; routine creation and editing stay contextual and visually quieter than Start.",
       "History and exercise detail present derived analytics as ruled ledgers rather than dashboard cards.",
       "Library and picker rows share continuously extending still thumbnails and equal-width arrow-free filters; only selected detail renders a GIF.",
       "Read-only exercise and workout-log detail shares a labelled adaptive sheet with handle, backdrop, Escape, and downward dismissal.",

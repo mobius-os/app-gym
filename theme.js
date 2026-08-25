@@ -90,12 +90,18 @@ export const CSS = `
 .wk-section-title { margin:0 0 12px; font-size:15px; font-weight:700; letter-spacing:-.01em; }
 .wk-section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:4px; }
 .wk-section-heading .wk-section-title { margin:0; }
-.wk-section-heading > span,.wk-library-summary { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
-.wk-quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.wk-section-heading > span,.wk-section-heading-copy > span,.wk-library-summary { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.wk-quick-start { margin-bottom:34px; }
+.wk-new-workout { min-height:50px; }
+.wk-routines-heading { margin-bottom:8px; }
+.wk-section-heading-copy { display:flex; align-items:baseline; gap:8px; min-width:0; }
+.wk-new-routine { min-height:38px; padding:7px 11px; }
 .wk-routine-list { border-top:1px solid var(--border); }
 .wk-routine { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 16px; align-items:center; padding:16px 0; border-bottom:1px solid var(--border); }
 .wk-routine-main { min-width:0; }
 .wk-routine-actions { display:flex; align-items:center; gap:6px; }
+.wk-routine-edit { color:var(--muted); }
+.wk-routine-start { min-width:84px; }
 .wk-routine h3,.wk-history-row h3 { margin:0 0 4px; font-size:15px; font-weight:700; letter-spacing:-.01em; }
 .wk-routine p,.wk-history-row p { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
 
@@ -304,10 +310,9 @@ export const CSS = `
 }
 @media (max-width: 560px) {
   .wk-scroll,.wk-detail-scroll { padding-inline:16px; }
-  .wk-quick-actions { grid-template-columns:1fr; }
   .wk-routine { grid-template-columns:1fr; }
-  .wk-routine-actions { width:100%; }
-  .wk-routine-actions .wk-btn { flex:1; }
+  .wk-routine-actions { width:100%; justify-content:flex-end; }
+  .wk-routine-start { flex:1; }
   .wk-set-head,.wk-set-row { grid-template-columns:30px repeat(3,minmax(0,1fr)) 44px; gap:4px; }
   .wk-catalog-resume { align-items:stretch; flex-direction:column; }
   .wk-catalog-resume .wk-btn { width:100%; }

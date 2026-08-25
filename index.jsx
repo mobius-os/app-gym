@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowDown, ArrowUp, Check, ChevronRight, DotsVertical, Plus, Trash, X } from '@openai/apps-sdk-ui/components/Icon'
+import { ArrowDown, ArrowUp, Check, ChevronRight, DotsVertical, Pencil, Plus, Trash, X } from '@openai/apps-sdk-ui/components/Icon'
 import { CSS } from './theme.js'
 import {
   allExercises, duration, exerciseProgress, familiarExerciseIds, findExercise, finishWorkout, lastSetsFor,
@@ -474,19 +474,22 @@ export default function App({ appId, token }) {
 
 function WorkoutHome({ state, exercises, start, createRoutine, editRoutine }) {
   return <>
-    <section className="wk-section">
+    <section className="wk-section wk-quick-start">
       <h2 className="wk-section-title">Quick start</h2>
-      <div className="wk-quick-actions">
-        <button className="wk-btn wk-btn-secondary wk-btn-block" onClick={() => start(null)}><Plus size={17} />Start empty workout</button>
-        <button className="wk-btn wk-btn-secondary wk-btn-block" onClick={createRoutine}><Plus size={17} />New routine</button>
-      </div>
+      <button className="wk-btn wk-btn-primary wk-btn-block wk-new-workout" onClick={() => start(null)}><Plus size={18} />New workout</button>
     </section>
     <section className="wk-section">
-      <div className="wk-section-heading"><h2 className="wk-section-title">Routines</h2><span>{state.routines.length} saved</span></div>
+      <div className="wk-section-heading wk-routines-heading">
+        <div className="wk-section-heading-copy"><h2 className="wk-section-title">Routines</h2><span>{state.routines.length} saved</span></div>
+        <button className="wk-btn wk-btn-secondary wk-new-routine" onClick={createRoutine}><Plus size={16} />New routine</button>
+      </div>
       <div className="wk-routine-list">{state.routines.map((routine) => (
         <article className="wk-routine" key={routine.id}>
           <div className="wk-routine-main"><h3>{routine.name}</h3><p>{routine.exercises.map((item) => findExercise(state, item.exerciseId, exercises).name).join(', ') || 'No exercises yet'}</p></div>
-          <div className="wk-routine-actions"><button className="wk-btn wk-btn-ghost" onClick={() => editRoutine(routine)}>Edit</button><button className="wk-btn wk-btn-primary" disabled={routine.exercises.length === 0} onClick={() => start(routine)}>Start routine</button></div>
+          <div className="wk-routine-actions">
+            <button className="wk-btn wk-btn-ghost wk-routine-edit" aria-label={`Edit ${routine.name} routine`} onClick={() => editRoutine(routine)}><Pencil size={15} />Edit</button>
+            <button className="wk-btn wk-btn-primary wk-routine-start" aria-label={`Start ${routine.name} routine`} disabled={routine.exercises.length === 0} onClick={() => start(routine)}>Start</button>
+          </div>
         </article>
       ))}</div>
     </section>

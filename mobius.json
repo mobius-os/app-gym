@@ -2,7 +2,7 @@
   "id":"workout",
   "previous_id":"gym",
   "name":"Workout",
-  "version":"3.5.0",
+  "version":"3.5.1",
   "description":"Plan routines, log every set, follow progress, and share a readable training record with other apps.",
   "author":"mobius-os",
   "license":"MIT",

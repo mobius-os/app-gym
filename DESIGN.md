@@ -15,6 +15,34 @@ colors:
   scrim: "rgba(0,0,0,.5)"
   media-canvas: "#ffffff"
 typography:
+  micro:
+    fontFamily: "var(--font)"
+    fontSize: "8px"
+    fontWeight: 700
+  overline:
+    fontFamily: "var(--font)"
+    fontSize: "9px"
+    fontWeight: 700
+  compact-label:
+    fontFamily: "var(--font)"
+    fontSize: "10px"
+    fontWeight: 600
+  caption:
+    fontFamily: "var(--font)"
+    fontSize: "11px"
+    fontWeight: 600
+  supporting:
+    fontFamily: "var(--font)"
+    fontSize: "13px"
+    fontWeight: 600
+  input:
+    fontFamily: "var(--font)"
+    fontSize: "16px"
+    fontWeight: 400
+  empty-title:
+    fontFamily: "var(--font)"
+    fontSize: "17px"
+    fontWeight: 700
   headline:
     fontFamily: "var(--font)"
     fontSize: "18px"
@@ -42,11 +70,14 @@ typography:
     lineHeight: 1.5
 rounded:
   flat: "0"
+  compact: "7px"
   input: "8px"
   set-row: "9px"
   control: "10px"
   card: "12px"
-  sheet: "18px"
+  bottom-sheet: "16px"
+  adaptive-sheet: "18px"
+  phone-sheet: "20px"
   pill: "999px"
 spacing:
   xs: "4px"
@@ -189,7 +220,7 @@ Workout is flat and ruled by default. Tonal mixing distinguishes completion, rec
 
 ## Shapes
 
-The form language is compact and gently rounded without turning navigation into pills. Active tabs stay square and announce state with a two-pixel underline. Inputs and icon buttons use `8px`, set rows and checks `9px`, ordinary controls and fact/recovery cards `10px`, the picker, media, and rest timer `12px`, and adaptive sheets `18px`. Phone sheets square their lower corners against the viewport edge. Set numbers are circular; pills are reserved for transient save/status feedback. The app icon occupies a 36px square without a decorative container; the letter fallback alone uses a 10px rounded tile.
+The form language is compact and gently rounded without turning navigation into pills. Active tabs stay square and announce state with a two-pixel underline. Compact filter fallbacks use `7px`, inputs and icon buttons `8px`, set rows and checks `9px`, ordinary controls and fact/recovery cards `10px`, and the picker, media, and rest timer `12px`. Destructive bottom sheets use `16px`; adaptive details use `18px` on wide screens and `20px` across the phone top edge while remaining square against the lower viewport. Set numbers are circular; pills are reserved for transient save/status feedback. The app icon occupies a 36px square without a decorative container; the letter fallback alone uses a 10px rounded tile.
 
 ## Components
 
@@ -207,6 +238,7 @@ The form language is compact and gently rounded without turning navigation into 
 
 ### Buttons and Inputs
 - **Buttons:** `44px` minimum height, `10px` radius, and `10px 16px` padding. Primary actions use accent fill; secondary actions use the secondary surface; ghost actions remain transparent; danger appears only in destructive confirmation.
+- **Home Hierarchy:** New workout is the sole full-width primary action. New routine sits with the Routines heading as a compact secondary action. Each saved routine keeps Start primary while Edit becomes a quiet, pencil-labelled utility.
 - **States:** Active compresses to `scale(.97)` over `100ms`; disabled is 50% opacity and never transforms. Focus-visible uses a two-pixel accent outline with a two-pixel offset.
 - **Inputs:** `44px` minimum height, `8px` radius, one-pixel border, surface background, and `16px` text to avoid mobile zoom. Numeric set inputs shrink to `40px`, center their text, and use tabular numerals.
 
