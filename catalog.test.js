@@ -54,6 +54,7 @@ test('broken official thumbnail media is negatively cached instead of retried on
   assert.equal(writes[0].path, 'exercise_thumbnails/known-broken-media.json')
   assert.equal(writes[0].value.unavailable, true)
   assert.ok(Date.parse(writes[0].value.retryAfter) > Date.parse(writes[0].value.checkedAt))
+  assert.ok(Date.parse(writes[0].value.retryAfter) - Date.parse(writes[0].value.checkedAt) > 6 * 24 * 60 * 60 * 1000)
 
   const cachedExercise = { id: 'cached-broken-media', source: 'exercisedb-v1' }
   assert.equal(await loadExerciseThumbnail({
@@ -62,6 +63,54 @@ test('broken official thumbnail media is negatively cached instead of retried on
     store: { get: async () => writes[0].value, set: async () => assert.fail('fresh negative cache should not be rewritten') },
   }), null)
   assert.equal(fetches, 1)
+})
+
+test('temporary thumbnail failures retry soon and expire from the in-memory cache', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalSetTimeout = globalThis.setTimeout
+  const originalClearTimeout = globalThis.clearTimeout
+  const originalNow = Date.now
+  let now = Date.UTC(2026, 7, 25)
+  let fetches = 0
+  globalThis.fetch = async () => {
+    fetches += 1
+    return { ok: false, status: 503 }
+  }
+  globalThis.setTimeout = (callback) => { callback(); return 1 }
+  globalThis.clearTimeout = () => {}
+  Date.now = () => now
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    globalThis.setTimeout = originalSetTimeout
+    globalThis.clearTimeout = originalClearTimeout
+    Date.now = originalNow
+  })
+
+  const writes = []
+  const store = {
+    get: async () => null,
+    set: async (path, value) => writes.push({ path, value }),
+  }
+  const exercise = { id: 'temporary-media-outage', source: 'exercisedb-v1' }
+  assert.equal(await loadExerciseThumbnail({ token: 'test', store, exercise }), null)
+  assert.equal(fetches, 3)
+  assert.equal(Date.parse(writes[0].value.retryAfter) - now, 5 * 60 * 1000)
+
+  assert.equal(await loadExerciseThumbnail({ token: 'test', store, exercise }), null)
+  assert.equal(fetches, 3)
+
+  now += (5 * 60 * 1000) + 1
+  assert.equal(await loadExerciseThumbnail({ token: 'test', store, exercise }), null)
+  assert.equal(fetches, 6)
+
+  globalThis.fetch = async () => {
+    fetches += 1
+    throw new TypeError('offline')
+  }
+  const offlineExercise = { id: 'temporary-network-outage', source: 'exercisedb-v1' }
+  assert.equal(await loadExerciseThumbnail({ token: 'test', store, exercise: offlineExercise }), null)
+  assert.equal(fetches, 9)
+  assert.equal(Date.parse(writes.at(-1).value.retryAfter) - now, 5 * 60 * 1000)
 })
 
 test('aborted ExerciseDB work remains aborted instead of falling through recovery', async (t) => {

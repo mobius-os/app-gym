@@ -7,7 +7,8 @@ const MAX_PAGES = 80
 const CHECKPOINT_EVERY = 4
 const RETRY_DELAYS = [350, 1000]
 const THUMBNAIL_VERSION = 2
-const THUMBNAIL_RETRY_MS = 7 * 24 * 60 * 60 * 1000
+const THUMBNAIL_MISSING_RETRY_MS = 7 * 24 * 60 * 60 * 1000
+const THUMBNAIL_TRANSIENT_RETRY_MS = 5 * 60 * 1000
 const THUMBNAIL_SIZE = 96
 const THUMBNAIL_MEMORY_LIMIT = 180
 const thumbnailMemory = new Map()
@@ -15,12 +16,23 @@ const thumbnailRequests = new Map()
 const thumbnailQueue = []
 let thumbnailWorkers = 0
 
-function rememberThumbnail(exerciseId, imageData) {
+function rememberThumbnail(exerciseId, imageData, retryAfter = null) {
   thumbnailMemory.delete(exerciseId)
-  thumbnailMemory.set(exerciseId, imageData)
+  thumbnailMemory.set(exerciseId, { imageData, retryAfter })
   while (thumbnailMemory.size > THUMBNAIL_MEMORY_LIMIT) {
     thumbnailMemory.delete(thumbnailMemory.keys().next().value)
   }
+}
+
+function recalledThumbnail(exerciseId) {
+  const cached = thumbnailMemory.get(exerciseId)
+  if (!cached) return { found: false, imageData: null }
+  if (cached.imageData === null && cached.retryAfter <= Date.now()) {
+    thumbnailMemory.delete(exerciseId)
+    return { found: false, imageData: null }
+  }
+  rememberThumbnail(exerciseId, cached.imageData, cached.retryAfter)
+  return { found: true, imageData: cached.imageData }
 }
 
 function titleCase(value) {
@@ -262,24 +274,38 @@ function runThumbnailQueue() {
 async function fetchThumbnailBlob(token, gifUrl) {
   return scheduleThumbnail(async () => {
     for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt += 1) {
-      const response = await fetch(`/api/proxy?url=${encodeURIComponent(gifUrl)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (response.ok) return response.blob()
-      if ((response.status !== 429 && response.status < 500) || attempt === RETRY_DELAYS.length) return null
+      let response
+      try {
+        response = await fetch(`/api/proxy?url=${encodeURIComponent(gifUrl)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (response.ok) return { blob: await response.blob(), retryAfter: null }
+      } catch {
+        if (attempt === RETRY_DELAYS.length) {
+          return { blob: null, retryAfter: Date.now() + THUMBNAIL_TRANSIENT_RETRY_MS }
+        }
+        await delay(RETRY_DELAYS[attempt])
+        continue
+      }
+      if (response.status === 404 || response.status === 410) {
+        return { blob: null, retryAfter: Date.now() + THUMBNAIL_MISSING_RETRY_MS }
+      }
+      if (response.status !== 429 && response.status < 500) {
+        return { blob: null, retryAfter: Date.now() + THUMBNAIL_TRANSIENT_RETRY_MS }
+      }
+      if (attempt === RETRY_DELAYS.length) {
+        return { blob: null, retryAfter: Date.now() + THUMBNAIL_TRANSIENT_RETRY_MS }
+      }
       await delay(RETRY_DELAYS[attempt])
     }
-    return null
+    return { blob: null, retryAfter: Date.now() + THUMBNAIL_TRANSIENT_RETRY_MS }
   })
 }
 
 export async function loadExerciseThumbnail({ token, store, exercise }) {
   if (!exercise?.id) return null
-  if (thumbnailMemory.has(exercise.id)) {
-    const cached = thumbnailMemory.get(exercise.id)
-    rememberThumbnail(exercise.id, cached)
-    return cached
-  }
+  const recalled = recalledThumbnail(exercise.id)
+  if (recalled.found) return recalled.imageData
   if (thumbnailRequests.has(exercise.id)) return thumbnailRequests.get(exercise.id)
   const request = (async () => {
     const path = exerciseThumbnailPath(exercise.id)
@@ -290,24 +316,24 @@ export async function loadExerciseThumbnail({ token, store, exercise }) {
         return cached.imageData
       }
       if (cached?.version === THUMBNAIL_VERSION && cached.unavailable === true && Date.parse(cached.retryAfter) > Date.now()) {
-        rememberThumbnail(exercise.id, null)
+        rememberThumbnail(exercise.id, null, Date.parse(cached.retryAfter))
         return null
       }
     } catch { /* A missing thumbnail is an ordinary cache miss. */ }
 
     const gifUrl = exerciseGifUrl(exercise)
     if (!gifUrl) return null
-    const blob = await fetchThumbnailBlob(token, gifUrl)
+    const { blob, retryAfter } = await fetchThumbnailBlob(token, gifUrl)
     if (!blob) {
-      rememberThumbnail(exercise.id, null)
+      rememberThumbnail(exercise.id, null, retryAfter)
       try {
-        const checkedAt = new Date()
+        const checkedAt = new Date(Date.now())
         await store?.set(path, {
           version: THUMBNAIL_VERSION,
           source: EXERCISEDB_CREDIT,
           unavailable: true,
           checkedAt: checkedAt.toISOString(),
-          retryAfter: new Date(checkedAt.getTime() + THUMBNAIL_RETRY_MS).toISOString(),
+          retryAfter: new Date(retryAfter).toISOString(),
         })
       } catch { /* The intentional fallback still works without negative caching. */ }
       return null

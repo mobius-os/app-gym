@@ -23,7 +23,7 @@ Workout is the sole writer and declares `share_with_apps: "read"`. Other Möbius
 
 ## Exercise media
 
-Exercise information and demonstrations come from the free [ExerciseDB V1 API by AscendAPI](https://oss.exercisedb.dev/docs). The app fetches this data through the Möbius proxy. It decodes and caches small first-frame thumbnails for visible rows, negatively caches unavailable official media for seven days, and fetches a full animation only after an exercise is selected. AscendAPI attribution remains visible in the detail view.
+Exercise information and demonstrations come from the free [ExerciseDB V1 API by AscendAPI](https://oss.exercisedb.dev/docs). The app fetches this data through the Möbius proxy. It decodes and caches small first-frame thumbnails for visible rows, retries temporary service failures after a short pause, negatively caches missing official media for seven days, and fetches a full animation only after an exercise is selected. AscendAPI attribution remains visible in the detail view.
 
 ## Local verification
 
