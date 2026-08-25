@@ -1,95 +1,335 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-25T00:00:00Z",
+  "generatedAt": "2026-08-25T17:30:00Z",
   "title": "Design System: Workout",
   "extensions": {
     "colorMeta": {
-      "training-blue": {"role": "primary", "displayName": "Training Blue", "canonical": "#1877f2", "tonalRamp": ["#001b3d", "#003a78", "#075bb7", "#1877f2", "#5b9bff", "#91bbff", "#c4d8ff", "#edf4ff"]},
-      "training-blue-hover": {"role": "primary", "displayName": "Pressed Training Blue", "canonical": "#0865da", "tonalRamp": ["#001a39", "#00366f", "#0052a7", "#0865da", "#5791ed", "#8db5f7", "#c2d8fc", "#edf4ff"]},
-      "completion-green": {"role": "secondary", "displayName": "Completion Green", "canonical": "#35ae49", "tonalRamp": ["#072b0d", "#10531c", "#1d7c2d", "#35ae49", "#6dca78", "#9ddeaa", "#cef0d2", "#f0faF1"]},
-      "white": {"role": "neutral", "displayName": "Action White", "canonical": "#ffffff", "tonalRamp": ["#262626", "#4d4d4d", "#737373", "#999999", "#bfbfbf", "#d9d9d9", "#ededed", "#ffffff"]},
-      "media-neutral": {"role": "neutral", "displayName": "Media Neutral", "canonical": "#f2f3f5", "tonalRamp": ["#242526", "#48494b", "#6d6e70", "#929396", "#b7b8bb", "#d1d2d5", "#e5e6e8", "#f2f3f5"]}
+      "background": {
+        "role": "neutral",
+        "displayName": "Möbius Background",
+        "canonical": "var(--bg)"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Möbius Surface",
+        "canonical": "var(--surface)"
+      },
+      "surface-secondary": {
+        "role": "neutral",
+        "displayName": "Möbius Secondary Surface",
+        "canonical": "var(--surface2, var(--surface))"
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Möbius Text",
+        "canonical": "var(--text)"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Möbius Muted",
+        "canonical": "var(--muted)"
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Möbius Border",
+        "canonical": "var(--border)"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Möbius Accent",
+        "canonical": "var(--accent)"
+      },
+      "accent-foreground": {
+        "role": "primary",
+        "displayName": "Accent Foreground",
+        "canonical": "var(--accent-fg)"
+      },
+      "completion": {
+        "role": "secondary",
+        "displayName": "Completion",
+        "canonical": "var(--green)"
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Danger",
+        "canonical": "var(--danger)"
+      },
+      "scrim": {
+        "role": "neutral",
+        "displayName": "Modal Scrim",
+        "canonical": "rgba(0,0,0,.5)"
+      },
+      "media-canvas": {
+        "role": "neutral",
+        "displayName": "Media Canvas",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#4d4d4d",
+          "#737373",
+          "#999999",
+          "#bfbfbf",
+          "#d9d9d9",
+          "#ededed",
+          "#ffffff"
+        ]
+      }
     },
     "typographyMeta": {
-      "headline": {"displayName": "Screen Headline", "purpose": "Sticky page titles only."},
-      "title": {"displayName": "Ledger Title", "purpose": "Sections, routines, cards, and sheet headings."},
-      "body": {"displayName": "Compact Body", "purpose": "Descriptions, instructions, and supporting content."},
-      "label": {"displayName": "Ledger Label", "purpose": "Set columns, metadata, and compact statistics."}
+      "headline": {
+        "displayName": "Compact Header",
+        "purpose": "Root, workout, detail, and builder titles."
+      },
+      "title": {
+        "displayName": "Ledger Title",
+        "purpose": "Sections, rows, empty states, and sheets."
+      },
+      "metric": {
+        "displayName": "Ledger Metric",
+        "purpose": "Rolling seven-day totals and rest countdowns."
+      },
+      "body": {
+        "displayName": "Utility Body",
+        "purpose": "Instructions, confirmation copy, and guidance."
+      },
+      "label": {
+        "displayName": "Ledger Metadata",
+        "purpose": "Subtitles, previous values, analytics captions, facts, and set headings."
+      },
+      "micro": {
+        "displayName": "Micro Indicator",
+        "purpose": "Tiny progress and thumbnail fallback labels."
+      },
+      "overline": {
+        "displayName": "Set Overline",
+        "purpose": "Dense set and log headings where column width is constrained."
+      },
+      "compact-label": {
+        "displayName": "Compact Label",
+        "purpose": "Tight ledger headings, badges, and progress metadata."
+      },
+      "caption": {
+        "displayName": "Ledger Caption",
+        "purpose": "Secondary row details, timers, and setup-note labels."
+      },
+      "supporting": {
+        "displayName": "Supporting Action",
+        "purpose": "Tabs, filters, and compact secondary actions."
+      },
+      "input": {
+        "displayName": "Mobile-Safe Input",
+        "purpose": "Editable fields sized to prevent mobile viewport zoom."
+      },
+      "empty-title": {
+        "displayName": "Empty-State Title",
+        "purpose": "Focused guidance when a ledger has no entries yet."
+      }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "sticky-rest-timer",
+        "value": "0 5px 16px rgba(0,0,0,.18)",
+        "purpose": "Recoverable countdown above scrolling set rows."
+      },
+      {
+        "name": "adaptive-sheet",
+        "value": "0 18px 55px rgba(0,0,0,.34)",
+        "purpose": "Read-only detail floating above its preserved context."
+      },
+      {
+        "name": "status-pill",
+        "value": "0 2px 8px rgba(0,0,0,.18)",
+        "purpose": "Transient save and status feedback."
+      }
+    ],
     "motion": [
-      {"name": "responsive-spring", "value": "180ms cubic-bezier(.22,1,.36,1)", "purpose": "Press scale and exercise-row positional feedback."},
-      {"name": "state-fade", "value": "180ms ease", "purpose": "Background and border state changes."},
-      {"name": "reduced-motion", "value": "none", "purpose": "All transitions are removed when reduced motion is requested."}
+      {
+        "name": "press",
+        "value": "transform 100ms ease",
+        "purpose": "Buttons compress to scale(.97) on press."
+      },
+      {
+        "name": "control-state",
+        "value": "140ms ease",
+        "purpose": "Button background and border feedback."
+      },
+      {
+        "name": "ledger-state",
+        "value": "150ms ease",
+        "purpose": "Tab, input, set-row, and exercise-row state changes."
+      },
+      {
+        "name": "exercise-shift",
+        "value": "translateX(3px)",
+        "purpose": "Small hover cue on exercise rows."
+      },
+      {
+        "name": "sheet-enter",
+        "value": "transform 220ms cubic-bezier(.22,1,.36,1)",
+        "purpose": "Adaptive detail rises once with restrained ease-out motion."
+      },
+      {
+        "name": "sheet-dismiss",
+        "value": "transform 200ms cubic-bezier(.22,1,.36,1)",
+        "purpose": "The full sheet clears its own height in one uninterrupted downward movement."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "none",
+        "purpose": "All component transitions are removed when reduced motion is requested."
+      }
     ],
     "breakpoints": [
-      {"name": "phone", "value": "560px"}
+      {
+        "name": "phone",
+        "value": "560px"
+      },
+      {
+        "name": "content-rail",
+        "value": "820px"
+      }
     ]
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Unified App Rail",
+      "kind": "nav",
+      "refersTo": "app-icon",
+      "description": "One constrained rail combines the Workout icon and flat primary tabs; an active workout replaces the tabs with its title, elapsed time, and actions.",
+      "html": "<header class=\"ds-rail\"><span class=\"ds-app-icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 36 36\"><path d=\"M5 13v10M9 10v16M27 10v16M31 13v10M9 18h18\"/></svg></span><nav aria-label=\"Workout sections\"><button aria-current=\"page\">Workout</button><button>History</button><button>Exercises</button></nav></header>",
+      "css": ".ds-rail{box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;max-width:760px;min-height:58px;margin:auto;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font)}.ds-app-icon{display:grid;place-items:center;width:34px;height:34px}.ds-app-icon svg{width:34px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round}.ds-rail nav{display:flex;flex:1;gap:18px;height:58px}.ds-rail button{position:relative;flex:1;min-width:0;border:0;background:transparent;color:var(--muted);font:650 13px var(--font);cursor:pointer}.ds-rail button[aria-current=\"page\"]{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent)}.ds-rail button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Flat Underline Navigation",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Three equal 48px tabs on one bottom rule; the active tab is an accent underline rather than a pill.",
+      "html": "<nav class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab ds-active\" role=\"tab\" aria-selected=\"true\">Workout</button><button class=\"ds-tab\" role=\"tab\">History</button><button class=\"ds-tab\" role=\"tab\">Exercises</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:18px;height:48px;background:transparent;border-bottom:1px solid var(--border);font-family:var(--font)}.ds-tab{position:relative;box-sizing:border-box;flex:1;min-height:48px;padding:8px 4px;border:0;border-radius:0;background:transparent;color:var(--muted);font:650 13px var(--font);cursor:pointer;transition:color .15s}.ds-tab:hover{color:var(--text)}.ds-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-tab.ds-active{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent)}"
+    },
+    {
+      "name": "Primary and Secondary Buttons",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The decisive action for starting or finishing work.",
-      "html": "<button class=\"ds-btn-primary\">Start routine</button>",
-      "css": ".ds-btn-primary{min-height:44px;border:0;border-radius:10px;padding:0 15px;background:#1877f2;color:#fff;font:750 .875rem system-ui,sans-serif;cursor:pointer;transition:transform .18s cubic-bezier(.22,1,.36,1),background-color .18s ease}.ds-btn-primary:hover{background:#0865da}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+      "description": "The hierarchy keeps New workout as the sole full-width primary action, with New routine and pencil-labelled Edit as visible secondary buttons beside each routine's primary Start action.",
+      "html": "<div class=\"ds-actions\"><button class=\"ds-btn ds-primary\">New workout</button><button class=\"ds-btn ds-secondary\">New routine</button></div>",
+      "css": ".ds-actions{display:flex;gap:8px}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:10px 16px;border-radius:10px;border:1px solid var(--border);color:var(--text);font:600 14px var(--font);cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .1s ease}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}.ds-primary:hover{filter:brightness(1.06)}.ds-secondary{background:var(--surface2,var(--surface))}.ds-secondary:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}"
     },
     {
-      "name": "Secondary Button",
-      "kind": "button",
-      "description": "A full-width utility action that remains subordinate to the primary action.",
-      "html": "<button class=\"ds-btn-secondary\">＋ Add exercise</button>",
-      "css": ".ds-btn-secondary{width:100%;min-height:44px;border:1px solid #d8dadd;border-radius:10px;padding:0 15px;background:#f2f3f5;color:#17191c;font:750 .875rem system-ui,sans-serif;cursor:pointer;transition:transform .18s cubic-bezier(.22,1,.36,1),background-color .18s ease}.ds-btn-secondary:hover{background:#e7e9ec}.ds-btn-secondary:active{transform:scale(.98)}.ds-btn-secondary:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
-    },
-    {
-      "name": "Numeric Set Input",
+      "name": "Workout Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "A compact, bold numeric field for weight or reps.",
-      "html": "<input class=\"ds-set-input\" inputmode=\"decimal\" value=\"80\" aria-label=\"Weight\">",
-      "css": ".ds-set-input{width:70px;height:40px;border:1px solid #d8dadd;border-radius:8px;background:#fff;color:#17191c;padding:0 4px;text-align:center;font:750 .875rem system-ui,sans-serif}.ds-set-input:hover{border-color:#aeb2b8}.ds-set-input:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+      "description": "The standard accessible field, with a compact numeric ledger variant.",
+      "html": "<label class=\"ds-field\"><span>Reps</span><input inputmode=\"decimal\" value=\"8\"></label>",
+      "css": ".ds-field{display:block;color:var(--text);font-family:var(--font)}.ds-field span{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:600}.ds-field input{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:11px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font:400 16px/1.5 var(--font);transition:border-color .15s ease,box-shadow .15s ease}.ds-field input:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}.ds-field input:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);outline:2px solid var(--accent);outline-offset:2px}"
     },
     {
-      "name": "Filter Chip",
-      "kind": "chip",
-      "description": "A horizontally scrollable exercise filter with a strong selected inversion.",
-      "html": "<button class=\"ds-chip\">Chest</button><button class=\"ds-chip ds-chip-on\">All</button>",
-      "css": ".ds-chip{white-space:nowrap;border:1px solid #d8dadd;background:#fff;color:#666b73;border-radius:999px;padding:8px 12px;font:500 .8rem system-ui,sans-serif;cursor:pointer}.ds-chip:hover{background:#f2f3f5}.ds-chip:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}.ds-chip-on{background:#17191c;color:#fff;border-color:#17191c}"
+      "name": "Rolling Seven-Day Ledger",
+      "kind": "custom",
+      "description": "A flat three-metric history summary with a comparison to the preceding seven-day window.",
+      "html": "<section class=\"ds-analytics\"><div class=\"ds-analytics-head\"><h3>Last 7 days</h3><span>Updates from your history</span></div><div class=\"ds-metrics\"><div><strong>4</strong><span>Workouts</span></div><div><strong>38</strong><span>Completed sets</span></div><div><strong>12,480</strong><span>Volume · kg</span></div></div><p>6 more completed sets than the previous 7 days.</p></section>",
+      "css": ".ds-analytics{color:var(--text);font-family:var(--font)}.ds-analytics-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.ds-analytics h3{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em}.ds-analytics-head>span,.ds-analytics p{color:var(--muted);font-size:12px}.ds-metrics{display:grid;grid-template-columns:repeat(3,1fr);margin-top:10px;border-block:1px solid var(--border)}.ds-metrics>div{min-width:0;padding:15px 12px;border-right:1px solid var(--border)}.ds-metrics>div:first-child{padding-left:0}.ds-metrics>div:last-child{padding-right:0;border-right:0}.ds-metrics strong,.ds-metrics span{display:block;overflow:hidden;text-overflow:ellipsis}.ds-metrics strong{font-size:20px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.02em}.ds-metrics span{margin-top:4px;color:var(--muted);font-size:11px;white-space:nowrap}.ds-analytics p{margin:10px 0 0;line-height:1.5}"
     },
     {
-      "name": "Workout Navigation",
-      "kind": "nav",
-      "description": "Equal-width tabs with a blue text-and-underline active state.",
-      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-on\">Workout</button><button>History</button><button>Exercises</button><button>Data</button></nav>",
-      "css": ".ds-nav{height:48px;display:flex;border-bottom:1px solid #d8dadd}.ds-nav button{flex:1;min-height:44px;border:0;border-bottom:2px solid transparent;background:none;color:#666b73;font:700 .8rem system-ui,sans-serif;cursor:pointer}.ds-nav button:hover{color:#1877f2}.ds-nav button:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:-3px}.ds-nav .ds-nav-on{color:#1877f2;border-color:#1877f2}"
+      "name": "Filtered Exercise Discovery",
+      "kind": "custom",
+      "description": "The library and picker share arrow-free filters and one progressively cached still thumbnail per visible row; selecting a picker row previews before adding.",
+      "html": "<section class=\"ds-picker\"><input class=\"ds-search\" aria-label=\"Search exercises\" placeholder=\"Search exercises, muscles, equipment\"><div class=\"ds-filters\"><button>All equipment</button><button>All muscles</button></div><button class=\"ds-exercise-row\" aria-label=\"Preview Bench Press (Barbell)\"><span class=\"ds-thumb\" aria-hidden=\"true\">still</span><span class=\"ds-row-copy\"><strong>Bench Press (Barbell)</strong><span>Chest · Barbell</span></span><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"m9 18 6-6-6-6\"/></svg></button></section>",
+      "css": ".ds-picker{padding:12px;background:var(--bg);color:var(--text);font-family:var(--font)}.ds-search{box-sizing:border-box;width:100%;min-height:44px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:400 16px var(--font)}.ds-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.ds-filters button{min-height:44px;border:1px solid var(--border);border-radius:10px;background:var(--surface2,var(--surface));color:var(--text);font:600 14px var(--font);cursor:pointer}.ds-exercise-row{display:grid;grid-template-columns:52px minmax(0,1fr) 20px;align-items:center;gap:12px;width:100%;min-height:68px;padding:8px 2px;border:0;border-block:1px solid var(--border);background:transparent;color:var(--text);text-align:left;font-family:var(--font);cursor:pointer;transition:background .14s ease,transform .14s ease}.ds-exercise-row:hover{background:var(--surface2,var(--surface));transform:translateX(3px)}.ds-thumb{display:grid;place-items:center;width:52px;height:52px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#666;font-size:10px}.ds-row-copy strong,.ds-row-copy>span{display:block}.ds-row-copy strong{font-size:14px;font-weight:650}.ds-row-copy>span{margin-top:3px;color:var(--muted);font-size:12px}.ds-exercise-row svg{width:18px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-search:focus-visible,.ds-filters button:focus-visible,.ds-exercise-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
     },
     {
-      "name": "Data Card",
+      "name": "Adaptive Exercise Sheet",
+      "kind": "custom",
+      "description": "The selected exercise alone requests animated media inside a labelled, handle-led sheet that floats on larger screens and dismisses downward on phones.",
+      "html": "<div class=\"ds-scrim\"><section class=\"ds-detail\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Bench Press details\"><button class=\"ds-handle\" aria-label=\"Dismiss Bench Press details\"><span></span></button><header><div><strong>Bench Press (Barbell)</strong><span>Pectorals · Barbell</span></div><button>Add</button></header><div class=\"ds-scroll\"><div class=\"ds-media\">Selected animation</div><dl><div><dt>Target</dt><dd>Pectorals</dd></div><div><dt>Body part</dt><dd>Chest</dd></div><div><dt>Equipment</dt><dd>Barbell</dd></div></dl></div></section></div>",
+      "css": ".ds-scrim{display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(0,0,0,.48);font-family:var(--font)}.ds-detail{display:flex;flex-direction:column;width:min(100%,760px);max-height:min(92%,900px);overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--bg);color:var(--text);box-shadow:0 18px 55px rgba(0,0,0,.34);transition:transform .2s cubic-bezier(.22,1,.36,1)}.ds-handle{display:grid;place-items:center;width:100%;height:36px;padding:0;border:0;background:transparent;cursor:grab}.ds-handle span{width:38px;height:4px;border-radius:999px;background:color-mix(in srgb,var(--muted) 55%,transparent)}.ds-detail header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px 12px}.ds-detail header strong,.ds-detail header span{display:block}.ds-detail header strong{font-size:18px}.ds-detail header span{margin-top:2px;color:var(--muted);font-size:12px}.ds-detail header button{min-height:44px;padding:10px 16px;border:1px solid var(--accent);border-radius:10px;background:var(--accent);color:var(--accent-fg);font:600 14px var(--font)}.ds-scroll{overflow:auto;padding:20px}.ds-media{display:grid;place-items:center;min-height:220px;border:1px solid var(--border);border-radius:12px;background:#fff;color:#666}.ds-detail dl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ds-detail dl div{padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}.ds-detail dt{color:var(--muted);font-size:11px}.ds-detail dd{margin:4px 0 0;font-size:13px;font-weight:650}@media(max-width:560px){.ds-scrim{padding:0}.ds-detail{width:100%;max-height:96%;border-inline:0;border-bottom:0;border-radius:20px 20px 0 0}}"
+    },
+    {
+      "name": "Recoverable Rest Timer",
       "kind": "card",
-      "description": "A quiet tonal container for ownership and supporting information.",
-      "html": "<article class=\"ds-card\"><h3>Your data, without lock-in</h3><p>Routines, sessions, exercises, and preferences stay in one portable record.</p></article>",
-      "css": ".ds-card{border-radius:12px;padding:14px;background:#f2f3f5;color:#17191c;font-family:system-ui,sans-serif}.ds-card h3{margin:0 0 7px;font-size:.96rem}.ds-card p{margin:0;color:#666b73;font-size:.84rem;line-height:1.5}.ds-card:hover{background:#eceef1}.ds-card:focus-within{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+      "refersTo": "rest-timer",
+      "description": "A sticky persisted countdown that begins automatically when a valid set is marked complete.",
+      "html": "<aside class=\"ds-rest\" role=\"status\"><div><span>Rest · Bench Press (Barbell)</span><strong>1:12</strong></div><button>Skip</button></aside>",
+      "css": ".ds-rest{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 10px 10px 14px;border:1px solid color-mix(in srgb,var(--accent) 34%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--text);box-shadow:0 5px 16px rgba(0,0,0,.18);font-family:var(--font)}.ds-rest span,.ds-rest strong{display:block}.ds-rest span{overflow:hidden;color:var(--muted);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ds-rest strong{margin-top:2px;font-size:20px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.02em}.ds-rest button{min-height:44px;padding:10px 16px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--accent);font:600 14px var(--font);cursor:pointer}.ds-rest button:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}.ds-rest button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
     },
     {
-      "name": "Completed Set",
+      "name": "Guarded Set Logger",
       "kind": "custom",
       "refersTo": "completion-toggle",
-      "description": "The signature ledger row, keeping previous values beside current inputs and visible completion.",
-      "html": "<div class=\"ds-set-row\"><span class=\"ds-set-num\">1</span><span class=\"ds-previous\">77.5 × 8</span><input aria-label=\"Weight\" value=\"80\"><input aria-label=\"Reps\" value=\"8\"><button aria-label=\"Unmark set complete\">✓</button></div>",
-      "css": ".ds-set-row{min-height:52px;padding:6px;border-radius:9px;display:grid;grid-template-columns:34px 1fr 70px 70px 42px;gap:6px;align-items:center;background:color-mix(in srgb,#35ae49 14%,#fff);font-family:system-ui,sans-serif}.ds-set-num{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#f2f3f5;font-size:.78rem;font-weight:750}.ds-previous{color:#666b73;font-size:.74rem}.ds-set-row input{width:100%;height:40px;border:1px solid #d8dadd;border-radius:8px;text-align:center;font-weight:750}.ds-set-row button{width:36px;height:36px;border:1px solid #35ae49;border-radius:9px;background:#35ae49;color:#fff;font-weight:900;cursor:pointer}.ds-set-row input:focus-visible,.ds-set-row button:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}.ds-set-row button:active{transform:scale(.96)}"
+      "description": "The signature five-column ledger gives Previous, unit, and reps equal flexible width; centered previous values copy both fields, completion is reps-gated, and the setup note stays with the exercise.",
+      "html": "<section class=\"ds-logger\"><label class=\"ds-note\"><span>Setup note</span><input value=\"Bench notch 4 · pinky on ring\"></label><div class=\"ds-set-row ds-complete\"><span class=\"ds-set-number\">1</span><button class=\"ds-previous\" aria-label=\"Copy previous set 77.5 kilograms by 8 reps\">77.5 × 8</button><input aria-label=\"Weight\" value=\"80\"><input aria-label=\"Reps\" value=\"8\"><button class=\"ds-check\" aria-label=\"Unmark set complete\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"m5 12 4 4 10-10\"/></svg></button></div></section>",
+      "css": ".ds-logger{color:var(--text);font-family:var(--font)}.ds-note{display:block;margin-bottom:8px}.ds-note span{display:block;margin-bottom:4px;color:var(--muted);font-size:11px;font-weight:600}.ds-note input{box-sizing:border-box;width:100%;min-height:40px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:400 16px var(--font)}.ds-set-row{display:grid;grid-template-columns:34px repeat(3,minmax(0,1fr)) 44px;gap:6px;align-items:center;min-height:52px;padding:6px;border-radius:9px;transition:background .15s ease}.ds-complete{background:color-mix(in srgb,var(--green) 14%,var(--surface))}.ds-set-number{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--surface2,var(--surface));font-size:12px;font-weight:700}.ds-previous{min-height:44px;padding:4px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:600 12px var(--font);font-variant-numeric:tabular-nums;text-align:center;cursor:pointer}.ds-set-row>input{box-sizing:border-box;width:100%;height:40px;padding:6px 4px;text-align:center;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font:700 16px/1.5 var(--font);font-variant-numeric:tabular-nums}.ds-check{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--green);border-radius:9px;background:var(--green);color:var(--accent-fg);cursor:pointer}.ds-check svg{width:20px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}.ds-note input:focus-visible,.ds-set-row button:focus-visible,.ds-set-row>input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:560px){.ds-set-row{grid-template-columns:30px repeat(3,minmax(0,1fr)) 44px;gap:4px}}"
+    },
+    {
+      "name": "Exercise Progress Ledger",
+      "kind": "custom",
+      "description": "Exercise-specific metrics and recent performances are derived from completed sessions and remain flat, ruled, and tabular.",
+      "html": "<section class=\"ds-progress\"><h3>Progress</h3><div class=\"ds-progress-metrics\"><div><strong>80 kg</strong><span>Best weight</span></div><div><strong>101 kg</strong><span>Estimated 1RM</span></div><div><strong>2,840 kg</strong><span>Best volume</span></div><div><strong>12</strong><span>Workouts</span></div></div><div class=\"ds-progress-row\"><span>25 Aug</span><strong>80 kg × 8</strong><span>4 sets · 2,840 kg</span></div></section>",
+      "css": ".ds-progress{color:var(--text);font-family:var(--font)}.ds-progress h3{margin:0;font-size:15px;letter-spacing:-.01em}.ds-progress-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px;border-block:1px solid var(--border)}.ds-progress-metrics>div{min-width:0;padding:12px 10px;border-right:1px solid var(--border)}.ds-progress-metrics>div:first-child{padding-left:0}.ds-progress-metrics>div:last-child{border-right:0}.ds-progress-metrics strong,.ds-progress-metrics span{display:block;overflow:hidden;text-overflow:ellipsis}.ds-progress-metrics strong{font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}.ds-progress-metrics span{margin-top:3px;color:var(--muted);font-size:10px}.ds-progress-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);font-size:12px}.ds-progress-row strong{font-variant-numeric:tabular-nums}.ds-progress-row span{color:var(--muted)}@media(max-width:560px){.ds-progress-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ds-progress-metrics>div:nth-child(2){border-right:0}.ds-progress-metrics>div:nth-child(-n+2){border-bottom:1px solid var(--border)}.ds-progress-row{grid-template-columns:58px minmax(0,1fr)}.ds-progress-row span:last-child{grid-column:2}}"
+    },
+    {
+      "name": "Destructive Bottom Sheet",
+      "kind": "custom",
+      "description": "The sole destructive confirmation surface, preserving routine and history context.",
+      "html": "<div class=\"ds-scrim\"><section class=\"ds-sheet\"><h3>Discard this workout?</h3><p>The in-progress sets will be removed. Completed workout history and routines stay untouched.</p><div><button>Keep workout</button><button class=\"ds-danger\">Discard</button></div></section></div>",
+      "css": ".ds-scrim{display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(0,0,0,.5);font-family:var(--font)}.ds-sheet{box-sizing:border-box;width:100%;max-width:480px;max-height:85vh;padding:24px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:16px 16px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.3)}.ds-sheet h3{margin:0 0 12px;font-size:16px;letter-spacing:-.01em}.ds-sheet p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.5}.ds-sheet>div{display:flex;gap:8px;margin-top:24px}.ds-sheet button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:10px;background:var(--surface2,var(--surface));color:var(--text);font:600 14px var(--font);cursor:pointer}.ds-sheet button:hover{filter:brightness(1.06)}.ds-sheet button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-sheet .ds-danger{background:var(--danger);border-color:var(--danger);color:var(--accent-fg)}"
     }
   ],
   "narrative": {
-    "northStar": "The Open Training Notebook",
-    "overview": "Workout feels like a training notebook already open to today’s work: immediate, legible, and ready for repeated use. It is a native-feeling utility rather than a dashboard, with quiet graphite surfaces, a single training-blue action voice, and list rows and set tables that keep the next action beside the information needed to take it. The interface is dense enough for short glances in the gym but never cramped; strong hierarchy, generous tap targets, and restrained feedback make one-handed logging dependable.",
-    "keyCharacteristics": ["White/graphite foundation with one training-blue action voice.", "Workout-native rows, set tables, and previous-value context.", "Compact typography and full-width mobile actions.", "Calm feedback with motion used only to reinforce state."],
-    "rules": [
-      {"name": "The One Action Voice Rule", "body": "Blue means actionable or current; green means completed. Do not introduce decorative accent colors.", "section": "colors"},
-      {"name": "The Glanceable Ledger Rule", "body": "Labels stay small and quiet; the exercise, value, and next action remain visually dominant.", "section": "typography"},
-      {"name": "The Flat Ledger Rule", "body": "Use borders, surface tones, and spatial containment before adding elevation.", "section": "elevation"}
+    "northStar": "The Möbius Token Ledger",
+    "overview": "Workout is a Möbius-native training ledger, not a fitness dashboard. The interface inherits the shell’s current light or dark tokens and combines the real Workout icon with one flat primary tab rail, keeping navigation quiet beside dense set data. Ruled rows, aligned numbers, and restrained color make the record feel dependable at a glance.\n\nThe core journey is deliberately progressive: start or edit a routine, reuse a saved setup note, tap previous values into the next set, let a recoverable rest timer begin when a valid set is completed, and inspect rolling or exercise-specific progress. Library and picker rows extend in bounded batches as the user scrolls and lazily request one cached still frame; the selected exercise alone rises in an adaptive sheet and requests the animated demonstration. Catalogue and media failures never block saved routines or an active workout.",
+    "keyCharacteristics": [
+      "One constrained rail combines the Workout icon and three flat tabs, then becomes the active-workout title and actions.",
+      "Three flat 58px tabs use a two-pixel accent underline instead of a pill or lifted selection.",
+      "New workout owns the home primary position; routine creation and editing stay contextual and visually quieter than Start.",
+      "History and exercise detail present derived analytics as ruled ledgers rather than dashboard cards.",
+      "Library and picker rows share continuously extending still thumbnails and equal-width arrow-free filters; only selected detail renders a GIF.",
+      "Read-only exercise and workout-log detail shares a labelled adaptive sheet with handle, backdrop, Escape, and downward dismissal.",
+      "Previous, unit, and reps share equal centered ledger width; valid completion starts a recoverable rest timer."
     ],
-    "dos": ["Do keep the workout and next logging action in the first viewport.", "Do place previous performance beside current set inputs.", "Do retain 44px tap targets for repeated actions.", "Do inherit host neutrals and typography."],
-    "donts": ["Don't turn the interface into an analytics dashboard.", "Don't use shadows, gradients, ornamental type, or extra accents.", "Don't hide logging behind configuration or exercise media.", "Don't use pills for ordinary buttons or containers."]
+    "rules": [
+      {
+        "name": "The Token-Only Rule",
+        "body": "Do not introduce app-owned light/dark palettes. Use the shell roles exactly, including `surface2`’s fallback to `surface`.",
+        "section": "colors"
+      },
+      {
+        "name": "The State-Color Rule",
+        "body": "Accent means action or current progress, green means valid completion, and danger means destructive intent. Color is never decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Glanceable Ledger Rule",
+        "body": "Previous performance, current values, completion, and rolling totals stay aligned; descriptive text must not overpower them.",
+        "section": "typography"
+      },
+      {
+        "name": "The Structural Elevation Rule",
+        "body": "Rows, analytics cells, tabs, and ordinary containers remain flat. Shadows are reserved for sticky, modal, or transient overlay states.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do combine the app icon and flat primary tabs in one constrained root rail.",
+      "Do keep rolling and exercise-specific metrics ruled, tabular, derived, and deterministic.",
+      "Do extend library and picker results automatically in bounded batches, show one progressively cached still per row, and use a target label when official media is missing.",
+      "Do keep the two discovery filters equal-width, arrow-free, and available in both the library and picker.",
+      "Do center Previous values and give Previous, unit, and reps equal flexible ledger width.",
+      "Do use the handle-led adaptive sheet for read-only detail and close it in one continuous downward movement.",
+      "Do keep routine editing explicit with Cancel and Save actions.",
+      "Do persist the automatic rest timer with the active draft, and remove it before writing finished history.",
+      "Do remove component transitions under `prefers-reduced-motion: reduce`."
+    ],
+    "donts": [
+      "Don't add a second visible app-title header or restore filled, rounded root tabs.",
+      "Don't add X or Back controls to read-only sheet headers, or dismiss to an intermediate resting point.",
+      "Don't turn analytics into a card-heavy fitness dashboard or use decorative data color.",
+      "Don't restore manual show-more controls or a fixed picker-result cap.",
+      "Don't add from a picker row, autoplay or preload multiple GIFs, or let thumbnail failure remove a usable exercise.",
+      "Don't persist derived progress beside completed sessions or introduce a second analytics record.",
+      "Don't restart a recovered countdown from its full duration or copy timer state into completed history.",
+      "Don't allow zero-rep sets to become or remain complete, or allow an empty workout to finish.",
+      "Don't imply that cross-app readers may write back into Workout’s record."
+    ]
   }
 }
