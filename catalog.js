@@ -1,9 +1,27 @@
 const API_ROOT = 'https://oss.exercisedb.dev/api/v1/exercises'
+const MEDIA_ORIGIN = 'https://static.exercisedb.dev'
+const MEDIA_PATH = '/media/'
 const CACHE_PATH = 'exercise_catalog.json'
 const PAGE_SIZE = 25
 const MAX_PAGES = 80
 const CHECKPOINT_EVERY = 4
 const RETRY_DELAYS = [350, 1000]
+const THUMBNAIL_VERSION = 2
+const THUMBNAIL_RETRY_MS = 7 * 24 * 60 * 60 * 1000
+const THUMBNAIL_SIZE = 96
+const THUMBNAIL_MEMORY_LIMIT = 180
+const thumbnailMemory = new Map()
+const thumbnailRequests = new Map()
+const thumbnailQueue = []
+let thumbnailWorkers = 0
+
+function rememberThumbnail(exerciseId, imageData) {
+  thumbnailMemory.delete(exerciseId)
+  thumbnailMemory.set(exerciseId, imageData)
+  while (thumbnailMemory.size > THUMBNAIL_MEMORY_LIMIT) {
+    thumbnailMemory.delete(thumbnailMemory.keys().next().value)
+  }
+}
 
 function titleCase(value) {
   return String(value || '').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -29,6 +47,23 @@ function fullExercise(item) {
   }
 }
 
+export function exerciseThumbnailPath(exerciseId) {
+  return `exercise_thumbnails/${String(exerciseId).replace(/[^a-zA-Z0-9_-]/g, '_')}.json`
+}
+
+export function exerciseGifUrl(exercise) {
+  const candidate = exercise?.gifUrl || (exercise?.source === 'exercisedb-v1' && exercise?.id
+    ? `${MEDIA_ORIGIN}${MEDIA_PATH}${encodeURIComponent(exercise.id)}.gif`
+    : null)
+  if (!candidate) return null
+  try {
+    const url = new URL(candidate)
+    return url.protocol === 'https:' && url.origin === MEDIA_ORIGIN && url.pathname.startsWith(MEDIA_PATH) ? url.href : null
+  } catch {
+    return null
+  }
+}
+
 async function proxyJson(token, url, signal) {
   const response = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -44,11 +79,19 @@ async function proxyJson(token, url, signal) {
 
 function delay(milliseconds, signal) {
   return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(resolve, milliseconds)
-    signal?.addEventListener('abort', () => {
-      window.clearTimeout(timer)
+    if (signal?.aborted) {
       reject(new DOMException('Exercise catalogue sync aborted', 'AbortError'))
-    }, { once: true })
+      return
+    }
+    const onAbort = () => {
+      globalThis.clearTimeout(timer)
+      reject(new DOMException('Exercise catalogue sync aborted', 'AbortError'))
+    }
+    const timer = globalThis.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, milliseconds)
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 
@@ -142,14 +185,16 @@ export async function fetchExerciseDetail(token, exercise, signal) {
   try {
     const payload = await proxyJson(token, `${API_ROOT}/${encodeURIComponent(exercise.id)}`, signal)
     return payload.data ? { ...exercise, ...fullExercise(payload.data) } : exercise
-  } catch {
+  } catch (error) {
+    if (error.name === 'AbortError') throw error
     return exercise
   }
 }
 
 export async function fetchExerciseMedia(token, exercise, signal) {
-  if (!exercise?.gifUrl || exercise.imageData) return exercise
-  const response = await fetch(`/api/proxy?url=${encodeURIComponent(exercise.gifUrl)}`, {
+  const gifUrl = exerciseGifUrl(exercise)
+  if (!gifUrl || exercise.imageData) return exercise
+  const response = await fetch(`/api/proxy?url=${encodeURIComponent(gifUrl)}`, {
     headers: { Authorization: `Bearer ${token}` },
     signal,
   })
@@ -162,6 +207,125 @@ export async function fetchExerciseMedia(token, exercise, signal) {
     reader.readAsDataURL(blob)
   })
   return { ...exercise, imageData }
+}
+
+async function firstFrameData(blob) {
+  let source
+  try {
+    source = await createImageBitmap(blob)
+  } catch {
+    source = await new Promise((resolve, reject) => {
+      const image = new Image()
+      const objectUrl = URL.createObjectURL(blob)
+      image.onload = () => { URL.revokeObjectURL(objectUrl); resolve(image) }
+      image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Exercise thumbnail could not be decoded')) }
+      image.src = objectUrl
+    })
+  }
+
+  const width = source.naturalWidth || source.width
+  const height = source.naturalHeight || source.height
+  if (!width || !height) throw new Error('Exercise thumbnail has no dimensions')
+  const canvas = document.createElement('canvas')
+  canvas.width = THUMBNAIL_SIZE
+  canvas.height = THUMBNAIL_SIZE
+  const context = canvas.getContext('2d')
+  context.fillStyle = '#fff'
+  context.fillRect(0, 0, THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+  const scale = Math.min(THUMBNAIL_SIZE / width, THUMBNAIL_SIZE / height)
+  const drawWidth = width * scale
+  const drawHeight = height * scale
+  context.drawImage(source, (THUMBNAIL_SIZE - drawWidth) / 2, (THUMBNAIL_SIZE - drawHeight) / 2, drawWidth, drawHeight)
+  source.close?.()
+  const webp = canvas.toDataURL('image/webp', .78)
+  return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png')
+}
+
+function scheduleThumbnail(task) {
+  return new Promise((resolve, reject) => {
+    thumbnailQueue.push({ task, resolve, reject })
+    runThumbnailQueue()
+  })
+}
+
+function runThumbnailQueue() {
+  while (thumbnailWorkers < 3 && thumbnailQueue.length) {
+    const job = thumbnailQueue.shift()
+    thumbnailWorkers += 1
+    Promise.resolve().then(job.task).then(job.resolve, job.reject).finally(() => {
+      thumbnailWorkers -= 1
+      runThumbnailQueue()
+    })
+  }
+}
+
+async function fetchThumbnailBlob(token, gifUrl) {
+  return scheduleThumbnail(async () => {
+    for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt += 1) {
+      const response = await fetch(`/api/proxy?url=${encodeURIComponent(gifUrl)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (response.ok) return response.blob()
+      if ((response.status !== 429 && response.status < 500) || attempt === RETRY_DELAYS.length) return null
+      await delay(RETRY_DELAYS[attempt])
+    }
+    return null
+  })
+}
+
+export async function loadExerciseThumbnail({ token, store, exercise }) {
+  if (!exercise?.id) return null
+  if (thumbnailMemory.has(exercise.id)) {
+    const cached = thumbnailMemory.get(exercise.id)
+    rememberThumbnail(exercise.id, cached)
+    return cached
+  }
+  if (thumbnailRequests.has(exercise.id)) return thumbnailRequests.get(exercise.id)
+  const request = (async () => {
+    const path = exerciseThumbnailPath(exercise.id)
+    try {
+      const cached = await store?.get(path)
+      if ((cached?.version === 1 || cached?.version === THUMBNAIL_VERSION) && typeof cached.imageData === 'string') {
+        rememberThumbnail(exercise.id, cached.imageData)
+        return cached.imageData
+      }
+      if (cached?.version === THUMBNAIL_VERSION && cached.unavailable === true && Date.parse(cached.retryAfter) > Date.now()) {
+        rememberThumbnail(exercise.id, null)
+        return null
+      }
+    } catch { /* A missing thumbnail is an ordinary cache miss. */ }
+
+    const gifUrl = exerciseGifUrl(exercise)
+    if (!gifUrl) return null
+    const blob = await fetchThumbnailBlob(token, gifUrl)
+    if (!blob) {
+      rememberThumbnail(exercise.id, null)
+      try {
+        const checkedAt = new Date()
+        await store?.set(path, {
+          version: THUMBNAIL_VERSION,
+          source: EXERCISEDB_CREDIT,
+          unavailable: true,
+          checkedAt: checkedAt.toISOString(),
+          retryAfter: new Date(checkedAt.getTime() + THUMBNAIL_RETRY_MS).toISOString(),
+        })
+      } catch { /* The intentional fallback still works without negative caching. */ }
+      return null
+    }
+    const imageData = await firstFrameData(blob)
+    rememberThumbnail(exercise.id, imageData)
+    try {
+      await store?.set(path, {
+        version: THUMBNAIL_VERSION,
+        source: EXERCISEDB_CREDIT,
+        generatedAt: new Date().toISOString(),
+        imageData,
+      })
+    } catch { /* The visible still remains useful when persistent caching is unavailable. */ }
+    return imageData
+  })().finally(() => thumbnailRequests.delete(exercise.id))
+  thumbnailRequests.set(exercise.id, request)
+  return request
 }
 
 export const EXERCISEDB_CREDIT = 'ExerciseDB V1 by AscendAPI'
