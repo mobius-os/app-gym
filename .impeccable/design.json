@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-25T00:00:00Z",
+  "title": "Design System: Workout",
+  "extensions": {
+    "colorMeta": {
+      "training-blue": {"role": "primary", "displayName": "Training Blue", "canonical": "#1877f2", "tonalRamp": ["#001b3d", "#003a78", "#075bb7", "#1877f2", "#5b9bff", "#91bbff", "#c4d8ff", "#edf4ff"]},
+      "training-blue-hover": {"role": "primary", "displayName": "Pressed Training Blue", "canonical": "#0865da", "tonalRamp": ["#001a39", "#00366f", "#0052a7", "#0865da", "#5791ed", "#8db5f7", "#c2d8fc", "#edf4ff"]},
+      "completion-green": {"role": "secondary", "displayName": "Completion Green", "canonical": "#35ae49", "tonalRamp": ["#072b0d", "#10531c", "#1d7c2d", "#35ae49", "#6dca78", "#9ddeaa", "#cef0d2", "#f0faF1"]},
+      "white": {"role": "neutral", "displayName": "Action White", "canonical": "#ffffff", "tonalRamp": ["#262626", "#4d4d4d", "#737373", "#999999", "#bfbfbf", "#d9d9d9", "#ededed", "#ffffff"]},
+      "media-neutral": {"role": "neutral", "displayName": "Media Neutral", "canonical": "#f2f3f5", "tonalRamp": ["#242526", "#48494b", "#6d6e70", "#929396", "#b7b8bb", "#d1d2d5", "#e5e6e8", "#f2f3f5"]}
+    },
+    "typographyMeta": {
+      "headline": {"displayName": "Screen Headline", "purpose": "Sticky page titles only."},
+      "title": {"displayName": "Ledger Title", "purpose": "Sections, routines, cards, and sheet headings."},
+      "body": {"displayName": "Compact Body", "purpose": "Descriptions, instructions, and supporting content."},
+      "label": {"displayName": "Ledger Label", "purpose": "Set columns, metadata, and compact statistics."}
+    },
+    "shadows": [],
+    "motion": [
+      {"name": "responsive-spring", "value": "180ms cubic-bezier(.22,1,.36,1)", "purpose": "Press scale and exercise-row positional feedback."},
+      {"name": "state-fade", "value": "180ms ease", "purpose": "Background and border state changes."},
+      {"name": "reduced-motion", "value": "none", "purpose": "All transitions are removed when reduced motion is requested."}
+    ],
+    "breakpoints": [
+      {"name": "phone", "value": "560px"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive action for starting or finishing work.",
+      "html": "<button class=\"ds-btn-primary\">Start routine</button>",
+      "css": ".ds-btn-primary{min-height:44px;border:0;border-radius:10px;padding:0 15px;background:#1877f2;color:#fff;font:750 .875rem system-ui,sans-serif;cursor:pointer;transition:transform .18s cubic-bezier(.22,1,.36,1),background-color .18s ease}.ds-btn-primary:hover{background:#0865da}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "description": "A full-width utility action that remains subordinate to the primary action.",
+      "html": "<button class=\"ds-btn-secondary\">＋ Add exercise</button>",
+      "css": ".ds-btn-secondary{width:100%;min-height:44px;border:1px solid #d8dadd;border-radius:10px;padding:0 15px;background:#f2f3f5;color:#17191c;font:750 .875rem system-ui,sans-serif;cursor:pointer;transition:transform .18s cubic-bezier(.22,1,.36,1),background-color .18s ease}.ds-btn-secondary:hover{background:#e7e9ec}.ds-btn-secondary:active{transform:scale(.98)}.ds-btn-secondary:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+    },
+    {
+      "name": "Numeric Set Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A compact, bold numeric field for weight or reps.",
+      "html": "<input class=\"ds-set-input\" inputmode=\"decimal\" value=\"80\" aria-label=\"Weight\">",
+      "css": ".ds-set-input{width:70px;height:40px;border:1px solid #d8dadd;border-radius:8px;background:#fff;color:#17191c;padding:0 4px;text-align:center;font:750 .875rem system-ui,sans-serif}.ds-set-input:hover{border-color:#aeb2b8}.ds-set-input:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "description": "A horizontally scrollable exercise filter with a strong selected inversion.",
+      "html": "<button class=\"ds-chip\">Chest</button><button class=\"ds-chip ds-chip-on\">All</button>",
+      "css": ".ds-chip{white-space:nowrap;border:1px solid #d8dadd;background:#fff;color:#666b73;border-radius:999px;padding:8px 12px;font:500 .8rem system-ui,sans-serif;cursor:pointer}.ds-chip:hover{background:#f2f3f5}.ds-chip:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}.ds-chip-on{background:#17191c;color:#fff;border-color:#17191c}"
+    },
+    {
+      "name": "Workout Navigation",
+      "kind": "nav",
+      "description": "Equal-width tabs with a blue text-and-underline active state.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-on\">Workout</button><button>History</button><button>Exercises</button><button>Data</button></nav>",
+      "css": ".ds-nav{height:48px;display:flex;border-bottom:1px solid #d8dadd}.ds-nav button{flex:1;min-height:44px;border:0;border-bottom:2px solid transparent;background:none;color:#666b73;font:700 .8rem system-ui,sans-serif;cursor:pointer}.ds-nav button:hover{color:#1877f2}.ds-nav button:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:-3px}.ds-nav .ds-nav-on{color:#1877f2;border-color:#1877f2}"
+    },
+    {
+      "name": "Data Card",
+      "kind": "card",
+      "description": "A quiet tonal container for ownership and supporting information.",
+      "html": "<article class=\"ds-card\"><h3>Your data, without lock-in</h3><p>Routines, sessions, exercises, and preferences stay in one portable record.</p></article>",
+      "css": ".ds-card{border-radius:12px;padding:14px;background:#f2f3f5;color:#17191c;font-family:system-ui,sans-serif}.ds-card h3{margin:0 0 7px;font-size:.96rem}.ds-card p{margin:0;color:#666b73;font-size:.84rem;line-height:1.5}.ds-card:hover{background:#eceef1}.ds-card:focus-within{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}"
+    },
+    {
+      "name": "Completed Set",
+      "kind": "custom",
+      "refersTo": "completion-toggle",
+      "description": "The signature ledger row, keeping previous values beside current inputs and visible completion.",
+      "html": "<div class=\"ds-set-row\"><span class=\"ds-set-num\">1</span><span class=\"ds-previous\">77.5 × 8</span><input aria-label=\"Weight\" value=\"80\"><input aria-label=\"Reps\" value=\"8\"><button aria-label=\"Unmark set complete\">✓</button></div>",
+      "css": ".ds-set-row{min-height:52px;padding:6px;border-radius:9px;display:grid;grid-template-columns:34px 1fr 70px 70px 42px;gap:6px;align-items:center;background:color-mix(in srgb,#35ae49 14%,#fff);font-family:system-ui,sans-serif}.ds-set-num{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#f2f3f5;font-size:.78rem;font-weight:750}.ds-previous{color:#666b73;font-size:.74rem}.ds-set-row input{width:100%;height:40px;border:1px solid #d8dadd;border-radius:8px;text-align:center;font-weight:750}.ds-set-row button{width:36px;height:36px;border:1px solid #35ae49;border-radius:9px;background:#35ae49;color:#fff;font-weight:900;cursor:pointer}.ds-set-row input:focus-visible,.ds-set-row button:focus-visible{outline:3px solid color-mix(in srgb,#1877f2 35%,transparent);outline-offset:2px}.ds-set-row button:active{transform:scale(.96)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Open Training Notebook",
+    "overview": "Workout feels like a training notebook already open to today’s work: immediate, legible, and ready for repeated use. It is a native-feeling utility rather than a dashboard, with quiet graphite surfaces, a single training-blue action voice, and list rows and set tables that keep the next action beside the information needed to take it. The interface is dense enough for short glances in the gym but never cramped; strong hierarchy, generous tap targets, and restrained feedback make one-handed logging dependable.",
+    "keyCharacteristics": ["White/graphite foundation with one training-blue action voice.", "Workout-native rows, set tables, and previous-value context.", "Compact typography and full-width mobile actions.", "Calm feedback with motion used only to reinforce state."],
+    "rules": [
+      {"name": "The One Action Voice Rule", "body": "Blue means actionable or current; green means completed. Do not introduce decorative accent colors.", "section": "colors"},
+      {"name": "The Glanceable Ledger Rule", "body": "Labels stay small and quiet; the exercise, value, and next action remain visually dominant.", "section": "typography"},
+      {"name": "The Flat Ledger Rule", "body": "Use borders, surface tones, and spatial containment before adding elevation.", "section": "elevation"}
+    ],
+    "dos": ["Do keep the workout and next logging action in the first viewport.", "Do place previous performance beside current set inputs.", "Do retain 44px tap targets for repeated actions.", "Do inherit host neutrals and typography."],
+    "donts": ["Don't turn the interface into an analytics dashboard.", "Don't use shadows, gradients, ornamental type, or extra accents.", "Don't hide logging behind configuration or exercise media.", "Don't use pills for ordinary buttons or containers."]
+  }
+}

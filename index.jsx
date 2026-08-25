@@ -1,1120 +1,338 @@
-import React, {
-  useState, useEffect, useCallback, useMemo, useRef,
-} from 'react'
-import { Plus, X } from '@openai/apps-sdk-ui/components/Icon'
-// Workout — thin shell. The pure, headless logic lives in logic.js (the unit-
-// test target, listed in mobius.json source_files). UI components, the theme,
-// the storage adapter, the embedded-agent prompt, and the display/analytics
-// helpers live in their own modules and are imported below. This file keeps
-// only the useDocument runtime binding and the App root that wires them.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Plus, Trash, X } from '@openai/apps-sdk-ui/components/Icon'
 import { CSS } from './theme.js'
-import { makeStore } from './storage.js'
 import {
-  CHAT_PANE_MIN_PX,
-  chatOpenKey, chatRatioKey, clampChatRatio, readChatOpen, readChatRatio,
-} from './constants.js'
-import { draftFromStoredEntry } from './format.js'
+  allExercises, duration, findExercise, finishWorkout, lastSetsFor,
+  normalizeState, startWorkout, volume,
+} from './domain.js'
 import {
-  appendEntryToCurrentSession, assignSession, buildSessionRecap, createSessionController,
-  createVisiblePoller, currentSessionMissing, currentSessionReady, entryBelongsToActiveDraft,
-  groupSessions, lastEntryForExercise, localDate, makeCurrentSessionDocConfig,
-  makeEntriesDocConfig, migrateLegacyState, normalizeCurrentSession,
-  normalizeEntry, normalizeStoredEntries, reconcileDraftIds, strengthPRs,
-} from './logic.js'
-import { SportIcon } from './ui/SportIcon.jsx'
-import { ChatBubbleIcon } from './ui/Icons.jsx'
-import { useSyncStatus, SyncPill } from './ui/SyncPill.jsx'
-import { ConfirmModal } from './ui/ConfirmModal.jsx'
-import { ConfirmCard } from './ui/ConfirmCard.jsx'
-import { AgentChatPanel } from './ui/AgentChatPanel.jsx'
-import { QuickAddStrip } from './ui/QuickAddStrip.jsx'
-import { CurrentSessionPanel } from './ui/CurrentSessionPanel.jsx'
-import { InsightsTab } from './ui/InsightsTab.jsx'
-import { AllTab } from './ui/AllTab.jsx'
+  EXERCISEDB_CREDIT, fetchExerciseDetail, fetchExerciseMedia,
+  readCatalogCache, syncExerciseCatalog,
+} from './catalog.js'
 
-// Bind useDocument ONCE to the app's own React, lazily, from the mobius runtime
-// factory (window.mobius.createUseDocument(React)). The runtime is React-free
-// and headless-testable, so the factory must be handed the React the app
-// already imports — a self-binding window.mobius.useDocument would have no React
-// to call hooks on. Lazy + memoized so importing this module for the pure-logic
-// tests (no window.mobius) never throws; the error only fires if a render
-// actually reaches useDocument without the runtime present.
-let _useDocument = null
-function getUseDocument() {
-  if (_useDocument) return _useDocument
-  const factory = (typeof window !== 'undefined') ? window.mobius?.createUseDocument : null
-  if (typeof factory !== 'function') {
-    throw new Error('useDocument needs the mobius runtime — window.mobius.createUseDocument(React) is unavailable')
-  }
-  _useDocument = factory(React)
-  return _useDocument
-}
+const STATE_PATH = 'workout_state.json'
+const EXERCISE_PAGE_SIZE = 60
 
-// useDocument returns a BRAND-NEW handle object on every render (its return is a
-// fresh { value, status, ... } literal). Feeding that ever-changing identity into
-// a dependency array re-runs the memo/effect every render — and for the session
-// controller that means it is RE-CREATED and its cleanup DISPOSES the prior one
-// every render, which aborts the in-flight `load` with "controller disposed" so
-// the session can never settle. This wraps a handle in a STABLE identity whose
-// getters/methods always delegate to the latest render's handle: a dependent
-// keeps one identity for the component's life, yet every read still sees fresh
-// doc state. (Render-time reads keep using the raw handle directly.)
-function useStableDocHandle(doc) {
-  const ref = useRef(doc)
-  ref.current = doc
-  return useMemo(() => ({
-    get value() { return ref.current.value },
-    get status() { return ref.current.status },
-    get lastError() { return ref.current.lastError },
-    update: (fn) => ref.current.update(fn),
-    set: (next) => ref.current.set(next),
-    refresh: () => ref.current.refresh(),
-  }), [])
+function ExerciseMark({ exercise }) {
+  return <span className="wk-exercise-mark" aria-hidden="true">{exercise?.name?.slice(0, 1) || 'W'}</span>
 }
 
 export default function App({ appId, token }) {
-  const store = useMemo(() => makeStore(appId, token), [appId, token])
-  const [tab, setTab] = useState('session')
-  const [bootStatus, setBootStatus] = useState('loading')
-  const syncStatus = useSyncStatus(store)
-  const bumpSync = syncStatus.bump
+  const store = window.mobius?.storage
+  const [state, setState] = useState(null)
+  const [tab, setTab] = useState('workout')
+  const [toast, setToast] = useState('')
+  const [saveState, setSaveState] = useState('idle')
+  const [detail, setDetail] = useState(null)
+  const [detailState, setDetailState] = useState('idle')
+  const [builder, setBuilder] = useState(null)
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const [catalog, setCatalog] = useState([])
+  const [catalogStatus, setCatalogStatus] = useState({ state: 'idle', loaded: 0, total: 1500 })
+  const [catalogCacheReady, setCatalogCacheReady] = useState(false)
+  const [catalogSyncNonce, setCatalogSyncNonce] = useState(0)
+  const catalogSeed = useRef(null)
+  const catalogSyncStarted = useRef(false)
+  const readySignalled = useRef(false)
 
-  // ── The two source-of-truth documents, each a useDocument handle (the mobius
-  // runtime's serialized read-merge-write under If-Match/412 CAS). They REPLACE
-  // the two bespoke serialized-write engines this app used to ship: the docs ARE
-  // the React state (doc.value), and their update(fn) is the durable writer.
-  //
-  // The PROVEN merge/identity semantics are passed UNCHANGED as params, so the
-  // data-loss guarantees are byte-identical to the hand-rolled engines:
-  //   - entries.json: identity = the stable entry id; merge = mergeEntriesForSave
-  //     with the WHOLE accumulated tombstone set (closed over below), so every
-  //     write — local or a CAS reread-remerge — censors a deleted id against the
-  //     fresh remote (the absorbing barrier).
-  //   - current_session.json: a single object (not an array), so its merge is
-  //     mergeCurrentSessions after reconcileDraftIds maps an id-less co-writer
-  //     rewrite onto the in-memory ids by CONTENT signature — the id-churn that
-  //     once duplicated workouts, now owned by the doc's reconciliation.
-  // mode:'cas' is what CLOSES the cross-context finish-vs-agent residual: a
-  // concurrent embedded-agent append the writer never saw is preserved through
-  // the 412 reread-remerge loop, not lost to a whole-file last-write-wins.
-  const useDocument = useMemo(() => getUseDocument(), [])
-
-  // Absorbing-barrier tombstone set for entries.json: a deleted id never
-  // resurrects. Closed over by the entries doc's merge so EVERY entries write
-  // re-applies the WHOLE set against the fresh remote. A ref (not state): the
-  // merge reads it synchronously inside update(); it must not need a re-render.
-  const tombstonesRef = useRef(null)
-  if (tombstonesRef.current === null) tombstonesRef.current = new Set()
-  const tombstones = tombstonesRef.current
-
-  // The doc configs are the PROVEN merge/identity semantics, packaged as pure
-  // factories in logic.js (so index.jsx and the concurrency tests drive the SAME
-  // params). The entries config reads the tombstone set FRESH on every merge, so
-  // a CAS reread-remerge re-applies the whole absorbing barrier.
-  const entriesConfig = useMemo(() => makeEntriesDocConfig(() => [...tombstones]), [tombstones])
-  const currentConfig = useMemo(() => makeCurrentSessionDocConfig(), [])
-  const entriesDoc = useDocument('entries.json', entriesConfig)
-  const currentDoc = useDocument('current_session.json', currentConfig)
-
-  // Stable identities for the two handles, for any hook whose dependency array
-  // must not churn every render (the session controller and loadEntries below).
-  // useDocument hands back a fresh object each render, so depending on the raw
-  // handle would thrash those hooks; these proxies read through to live state.
-  const entriesDocHandle = useStableDocHandle(entriesDoc)
-  const currentDocHandle = useStableDocHandle(currentDoc)
-
-  // React-facing aliases: the docs ARE the state. A null/empty doc value before
-  // the first load reads as the old loading sentinel.
-  const entries = entriesDoc.status === 'loading' ? null : entriesDoc.value
-  const currentSession = currentDoc.value
-
-  // Stamp id-less draft entries to STABLE ids ONCE per raw draft value, so the
-  // ids the UI renders match the ids the draft transforms (delete/edit) filter
-  // on. CurrentSessionPanel used to normalize for render and mint FRESH random
-  // ids each render, while deleteDraftEntry/editSessionEntry compared them
-  // against the raw id-less doc value — so the first tap on an agent-written
-  // id-less draft no-opped and only "worked" on the second tap (after a write
-  // had stamped ids). Passing this stamped session down, and reconciling each
-  // write's fresh base against it below, makes the first tap land.
-  const stampedSession = useMemo(() => normalizeCurrentSession(currentSession), [currentSession])
-  const hasDraftEntries = Boolean(stampedSession?.entries?.length)
-  const stampedSessionRef = useRef(stampedSession)
-  stampedSessionRef.current = stampedSession
-
-  // Feed the SyncPill from the docs' write status (durable resolve clears the
-  // error; a rejected DurableWriteError sets it). Mirrors the old bumpSync(result).
   useEffect(() => {
-    bumpSync(currentDoc.lastError ? { error: true } : { synced: true })
-  }, [currentDoc.status, currentDoc.lastError])
-  useEffect(() => {
-    bumpSync(entriesDoc.lastError ? { error: true } : { synced: true })
-  }, [entriesDoc.status, entriesDoc.lastError])
-
-  // Retry hook for the SyncPill: the last failed intent re-enqueued on tap.
-  const retryActionRef = useRef(null)
-  // Re-entrancy guard for the Finish button only (so a double-tap can't enqueue
-  // two finish intents). The controller would serialize them anyway, but the
-  // button also drives a spinner + one-shot signals, so we gate the gesture.
-  const finishInFlightRef = useRef(false)
-
-  // ── The thin cross-FILE orchestrator (createSessionController in logic.js).
-  // It no longer owns a write engine — each doc.update is the durable CAS writer.
-  // Its remaining job is the part useDocument cannot: the cross-file Finish
-  // transition (stamp → commit entries → clear draft) as ONE indivisible
-  // sequence, and the tombstone barrier the entries merge enforces. One instance
-  // per app instance (keyed by the docs), disposed on app switch so a
-  // late-resolving step from the old app can't advance into the new one.
-  const controller = useMemo(() => createSessionController({
-    entriesDoc: entriesDocHandle,
-    currentDoc: currentDocHandle,
-    addTombstones: (ids) => { for (const id of ids || []) if (id) tombstones.add(id) },
-    onWriteError: (err, source) => {
-      // eslint-disable-next-line no-console
-      console.error(`${source} failed`, err)
-      bumpSync({ error: true })
-      window.mobius?.signal?.('error', { message: err?.message || `${source} failed`, source })
-    },
-    onReadError: (err, source) => {
-      // A refresh/poll READ failed — self-healing (the next tick retries), NOT a
-      // save failure. Log it, but do NOT trip the write-error pill or emit a
-      // per-tick error signal; the plain Offline pill covers the offline case.
-      // eslint-disable-next-line no-console
-      console.error(`${source} failed`, err)
-    },
-    // Reflection analytics emitter the controller uses for load-path signals
-    // (agent_draft_idless). Guarded like every other app signal call.
-    emitSignal: (name, payload) => window.mobius?.signal?.(name, payload),
-  }), [entriesDocHandle, currentDocHandle, tombstones, bumpSync])
-  // Dispose the previous controller on app switch / unmount so a stale enqueued
-  // step from it can't advance into the new app.
-  useEffect(() => () => controller.dispose(), [controller])
-
-  const [finishing, setFinishing] = useState(false)
-  // Exercise-level recap from the last Finish gesture. It stays until dismissed
-  // or a new logging flow starts, so the useful comparison is not a 3s toast.
-  const [savedRecap, setSavedRecap] = useState(null)
-  const bodyRef = useRef(null)
-  const tabRefs = useRef([])
-  // Chat is HIDDEN by default; the header toggle opens it as the bottom pane of
-  // a draggable split (ported from app-latex). chatRatio is the chat pane's
-  // fraction of the body height; both persist per app.
-  const [chatOpen, setChatOpen] = useState(() => readChatOpen(appId))
-  const [chatRatio, setChatRatio] = useState(() => readChatRatio(appId))
-
-  const selectTab = useCallback((nextTab) => {
-    if (nextTab === 'insights' && tab !== 'insights') {
-      window.mobius?.signal?.('insights_viewed', { source: 'tab' })
+    let alive = true
+    const applyState = (value) => {
+      if (!alive) return
+      const normalized = normalizeState(value)
+      setState(normalized)
+      if (!readySignalled.current) {
+        readySignalled.current = true
+        window.mobius?.signal?.('app_ready', { routine_count: normalized.routines.length })
+      }
     }
-    setTab(nextTab)
-    requestAnimationFrame(() => {
-      bodyRef.current?.querySelector('.wk-scroll')?.scrollTo({ top: 0 })
-    })
-  }, [tab])
-
-  const onTabKeyDown = useCallback((event, index) => {
-    const order = ['session', 'history', 'insights']
-    let nextIndex = index
-    if (event.key === 'ArrowRight') nextIndex = (index + 1) % order.length
-    else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + order.length) % order.length
-    else if (event.key === 'Home') nextIndex = 0
-    else if (event.key === 'End') nextIndex = order.length - 1
-    else return
-    event.preventDefault()
-    selectTab(order[nextIndex])
-    requestAnimationFrame(() => tabRefs.current[nextIndex]?.focus())
-  }, [selectTab])
-
-  const [editingEntry, setEditingEntry] = useState(null)
-  // quickAddDraft: { category, activity, metrics } pre-filled from the last
-  // logged instance of that exercise. null when not open. lastEntryForQuickAdd
-  // is the matching stored entry (for the ConfirmCard defaulting logic).
-  const [quickAddDraft, setQuickAddDraft] = useState(null)
-  const [lastEntryForQuickAdd, setLastEntryForQuickAdd] = useState(null)
-  const [deletePending, setDeletePending] = useState(null) // entry id awaiting confirm
-  const [clearSessionPending, setClearSessionPending] = useState(false)
-  // A quick-add whose Date/Time falls outside the open draft's window: hold it
-  // and prompt to clear the stale draft first (see commitQuickAdd). Shape:
-  // { draft, ts, oldDate, newDate } | null.
-  const [staleDraftPrompt, setStaleDraftPrompt] = useState(null)
-  const navHandleRef = useRef(null)
-  const staleDraftNavHandleRef = useRef(null)
-
-  // DATA INVARIANT: under ANY interleaving of quick-add, History edit, History
-  // delete, Finish, retry, poll, subscribe, and embedded-agent id-less co-write,
-  // no entry is lost, resurrected, or duplicated. The single serialized
-  // controller (above) enforces it — every entries.json mutation is enqueued as
-  // an intent and processed strictly serially, re-reading fresh + applying the
-  // whole tombstone set at process time.
-  const enqueueEntriesWrite = useCallback((intent = {}) => controller.entriesWrite(intent), [controller])
+    const unsubscribe = store?.subscribe?.(STATE_PATH, applyState)
+    if (!unsubscribe) store?.get(STATE_PATH).then(applyState).catch(() => applyState(null))
+    return () => { alive = false; if (typeof unsubscribe === 'function') unsubscribe() }
+  }, [appId, store])
 
   useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    try { localStorage.setItem(chatOpenKey(appId), String(chatOpen)) } catch {}
-  }, [appId, chatOpen])
-
-  useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    try { localStorage.setItem(chatRatioKey(appId), String(chatRatio)) } catch {}
-  }, [appId, chatRatio])
-
-  const resetChatForNextSession = useCallback(async () => {
-    setChatOpen(false)
-    // The chat helper owns this file. Clearing it means the next workout opens
-    // in a fresh conversation without exposing a chat-session picker.
-    try { await store.set('chat_id.json', null) } catch {}
+    let alive = true
+    readCatalogCache(store).then((cached) => {
+      if (!alive) return
+      catalogSeed.current = cached
+      if (cached) {
+        setCatalog(cached.exercises)
+        setCatalogStatus({ state: cached.complete ? 'ready' : 'partial', loaded: cached.exercises.length, total: cached.total })
+      }
+      setCatalogCacheReady(true)
+    }).catch(() => { if (alive) setCatalogCacheReady(true) })
+    return () => { alive = false }
   }, [store])
 
-  const loadEntries = useCallback(async (options = {}) => {
-    // entries.json is the entries doc — refresh() re-reads the fresh remote and
-    // reconciles it into entriesDoc.value (the React state). The doc's identity
-    // (entry id) keeps stable ids across reads; its merge applies the tombstone
-    // barrier, so a refresh never resurrects a just-deleted row.
-    const loaded = await entriesDocHandle.refresh().catch(() => entriesDocHandle.value)
-    const normalizedLoaded = normalizeStoredEntries(loaded)
-    if (normalizedLoaded.length > 0) {
-      if (options.setReady) setBootStatus('ready')
-      // Persist a normalization-rewrite (a legacy/odd-shaped file) through the
-      // durable writer so the canonical form lands on disk.
-      if (Array.isArray(loaded) && JSON.stringify(loaded) !== JSON.stringify(normalizedLoaded)) {
-        enqueueEntriesWrite({ upsertEntries: normalizedLoaded })
-      }
-      return normalizedLoaded
-    }
-    if (options.allowMigration) {
-      const legacy = await store.get('state.json')
-      if (legacy && Array.isArray(legacy.history) && legacy.history.length > 0) {
-        const migrated = normalizeStoredEntries(migrateLegacyState(legacy))
-        if (options.setReady) setBootStatus('ready')
-        // Commit the migrated history through the durable writer (sets the doc).
-        enqueueEntriesWrite({ upsertEntries: migrated })
-        return migrated
-      }
-    }
-    // A transient empty read is indistinguishable from a genuinely-empty store.
-    // Only the initial boot (setReady) renders the real empty state; the doc's
-    // optimistic value already preserves a non-empty list on a momentary empty
-    // refresh (refresh keeps valueRef when the server read is null).
-    if (options.setReady) setBootStatus('ready')
-    return normalizeStoredEntries(entriesDocHandle.value)
-  }, [enqueueEntriesWrite, entriesDocHandle, store])
-
-  // Reload current_session.json through the controller. Every reload trigger —
-  // initial mount, the subscribe callback, the poller tick, and
-  // onEntriesMaybeChanged — calls THIS, which enqueues a pure-read `load`. The
-  // controller refreshes currentDoc: it re-reads the fresh remote and reconciles
-  // id-less entries against the optimistic value (the doc's identity), writing
-  // NOTHING — so a concurrent agent append is never clobbered (the P0 property).
-  // Because load runs on the controller's cross-file chain, it can never observe
-  // a half-finished Finish transition.
-  const loadCurrentSession = useCallback(() => controller.load(), [controller])
-
-  // Initial load. entries.json is the append-only log. If it's missing but a
-  // legacy state.json exists, migrate its logged history to strength entries.
   useEffect(() => {
-    let cancelled = false
-    Promise.all([
-      loadEntries({ allowMigration: true, setReady: true }),
-      loadCurrentSession(),
-    ]).then(([loaded]) => {
-      if (cancelled) return
-      // Emit app_ready once data has loaded. item_count = session count so
-      // Dreaming can gauge how active this log is without counting raw entries.
-      const sessionCount = groupSessions(loaded || []).length
-      window.mobius?.signal?.('app_ready', { item_count: sessionCount })
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [loadCurrentSession, loadEntries])
-
-  // The embedded agent writes current_session.json mid-session from a chat
-  // turn; without a subscription the card keeps its stale mount-time read and
-  // the owner sees a blank panel after the agent logs a set. Re-load on every
-  // external write so agent-written drafts surface live. The load is an enqueued
-  // intent, so it serializes behind any in-flight write/finish.
-  useEffect(() => {
-    const unsub = store.subscribe('current_session.json', () => { controller.load() })
-    return () => { if (typeof unsub === 'function') unsub() }
-  }, [store, controller])
-
-  // subscribe() above only fires for writes made through THIS client (or the
-  // initial value). When a workout is logged from the MAIN shell chat, that
-  // write lands on the server from a different context, so the runtime never
-  // notifies this card — it stayed blank until a manual refresh. Poll the draft
-  // while the tab is visible, and refresh immediately on focus / becoming
-  // visible, so an agent-logged set surfaces within a few seconds with no
-  // reload. The poll tick is an enqueued `load` intent: it serializes behind any
-  // in-flight write/finish (so it can neither resurrect a just-cleared session
-  // nor clobber an un-flushed quick-add) and the load no-ops its setState when
-  // nothing changed.
-  useEffect(() => {
-    if (typeof document === 'undefined' || typeof window === 'undefined') return undefined
-    return createVisiblePoller(() => controller.load(), { doc: document, win: window })
-  }, [controller])
-
-  // Append-only write through the durable CAS writer. entriesWrite folds the
-  // deletions into the tombstone barrier and runs entriesDoc.update, which sets
-  // the optimistic value (read-your-writes), merges the fresh remote on stable
-  // id under CAS, and resolves durable / rejects on a non-durable write. On
-  // failure it re-throws; the caller wires the retry. (nextEntries is ignored —
-  // the doc derives the authoritative value from the upserts + fresh remote +
-  // tombstones, so no separate optimistic setState is needed.)
-  const persist = useCallback((nextEntries, options = {}) => {
-    const intent = { upsertEntries: options.upsertEntries || [], deletedIds: options.deletedIds || [] }
-    enqueueEntriesWrite(intent).catch((err) => {
-      retryActionRef.current = () => enqueueEntriesWrite(intent)
-      window.mobius?.signal?.('error', { message: err?.message || 'entries save failed', source: 'save' })
+    if (tab !== 'exercises' || !catalogCacheReady || catalogSyncStarted.current) return
+    catalogSyncStarted.current = true
+    const controller = new AbortController()
+    setCatalogStatus((current) => ({ ...current, state: 'loading' }))
+    syncExerciseCatalog({
+      token, store, seed: catalogSeed.current, signal: controller.signal,
+      onProgress: ({ exercises, loaded, total }) => {
+        if (loaded <= 25 || loaded % 100 === 0 || loaded === total) setCatalog(exercises)
+        setCatalogStatus({ state: 'loading', loaded, total })
+      },
+    }).then((cache) => {
+      catalogSeed.current = cache
+      setCatalog(cache.exercises)
+      setCatalogStatus({ state: cache.complete ? 'ready' : 'partial', loaded: cache.exercises.length, total: cache.total })
+      catalogSyncStarted.current = cache.complete
+    }).catch((error) => {
+      if (error.name === 'AbortError') return
+      setCatalogStatus((current) => ({ ...current, state: current.loaded ? 'cached' : 'error' }))
+      catalogSyncStarted.current = false
+      window.mobius?.signal?.('error', { source: 'exercise-catalog', message: error.message })
     })
-  }, [enqueueEntriesWrite])
+    return () => controller.abort()
+  }, [catalogCacheReady, catalogSyncNonce, store, tab, token])
 
-  const closeNestedNav = useCallback(() => {
-    try { navHandleRef.current?.close?.() } catch {}
-    navHandleRef.current = null
-  }, [])
+  const exercises = useMemo(() => state ? allExercises(state, catalog) : [], [catalog, state])
 
-  const closeStaleDraftNav = useCallback(() => {
-    try { staleDraftNavHandleRef.current?.close?.() } catch {}
-    staleDraftNavHandleRef.current = null
-  }, [])
-
-  const closeStaleDraftPrompt = useCallback(() => {
-    closeStaleDraftNav()
-    setStaleDraftPrompt(null)
-  }, [closeStaleDraftNav])
-
-  const openStaleDraftPrompt = useCallback(async (prompt) => {
-    closeStaleDraftNav()
-    if (window.mobius?.nav?.open) {
-      const handle = window.mobius.nav.open('workout-stale-draft', () => {
-        staleDraftNavHandleRef.current = null
-        setStaleDraftPrompt(null)
-      })
-      staleDraftNavHandleRef.current = handle
-      await handle.ready?.catch(() => false)
-      if (staleDraftNavHandleRef.current !== handle) return
-    }
-    setStaleDraftPrompt(prompt)
-  }, [closeStaleDraftNav])
-
-  // Quick-add writes the current-session draft, never entries.json directly.
-  // The first saved entry implicitly starts a session (the CurrentSessionPanel
-  // appearing with the entry IS the save feedback); entries reach committed
-  // history exactly once, when Finish session commits the draft.
-  const commitQuickAdd = useCallback(async (draft, ts, opts = {}) => {
-    const entry = normalizeEntry(draft, {
-      ts,
-      raw: '',
-      source: 'manual',
-      confirmed: true,
-    })
-    // A quick-add whose chosen Date/Time falls OUTSIDE the open draft's window
-    // can't just fork a fresh draft: current_session.json is one slot with a UNION
-    // merge, which would re-combine the fork back into the stale draft under the
-    // older start date — that IS the misdating bug. So block it here and prompt
-    // the owner to clear the stale draft first (confirmStaleDraftReplace clears,
-    // then re-logs with skipStaleCheck so the entry keeps its own date). Also emit
-    // draft_stale_resumed {age_hours} so Reflection sees the UX-expiry case.
-    if (!opts.skipStaleCheck) {
-      const activeDraft = normalizeCurrentSession(controller.getSession())
-      if (activeDraft && !entryBelongsToActiveDraft(activeDraft, ts)) {
-        const ageHours = Math.max(0, Math.round((Date.now() - activeDraft.startedAt) / 3_600_000))
-        window.mobius?.signal?.('draft_stale_resumed', { age_hours: ageHours })
-        await openStaleDraftPrompt({
-          draft,
-          ts,
-          oldDate: activeDraft.localDate,
-          newDate: localDate(new Date(ts)),
-        })
-        return
-      }
-    }
-    // Enqueue a session-transform intent. The controller re-reads the freshest
-    // store value AT PROCESS TIME and merges it with its in-memory truth FIRST
-    // (so an agent entry the read missed AND an earlier un-flushed quick-add
-    // both survive), then this transform appends. Serial by construction: two
-    // quick-adds — or a quick-add racing Finish — cannot interleave a
-    // read-modify-write and drop an entry.
+  const persist = useCallback(async (next, message = '') => {
+    setState(next)
+    setSaveState('saving')
     try {
-      await controller.sessionWrite((base) => appendEntryToCurrentSession(base, entry, ts))
-    } catch (err) {
-      retryActionRef.current = () => commitQuickAdd(draft, ts)
-      window.mobius?.signal?.('error', {
-        message: err?.message || 'current session save failed',
-        source: 'quick_add',
-      })
-      return
+      await store?.set(STATE_PATH, next)
+      setSaveState('saved')
+      if (message) setToast(message)
+    } catch (error) {
+      setSaveState('error')
+      setToast('Could not save. Your changes remain on this screen.')
+      window.mobius?.signal?.('error', { source: 'save', message: error.message })
     }
-    closeNestedNav()
-    setQuickAddDraft(null)
-    setLastEntryForQuickAdd(null)
-    setTab('session')
-    retryActionRef.current = null
-    // item_created {type, source}: the domain noun is the activity category, so
-    // Reflection can compare manual workout categories against the canonical
-    // vocabulary. source:'quick_add' marks the manual strip (vs the embedded
-    // chat) so the owner can weigh whether the chat feature earns its complexity.
-    window.mobius?.signal?.('item_created', { type: entry.category, source: 'quick_add' })
-  }, [closeNestedNav, controller, openStaleDraftPrompt])
+    if (message) window.setTimeout(() => setToast(''), 2200)
+  }, [store])
 
-  // The stale-draft prompt confirmed: discard the open (stale) draft, then log the
-  // held quick-add. Clearing FIRST is what lets the new entry keep its own date —
-  // with the stale draft gone, the append starts a fresh session the UNION merge
-  // won't re-combine. Both steps run serially on the controller chain (clear then
-  // append), so no other local write interleaves between them.
-  // Clear the stale draft, then log the held entry — as ONE atomic-intent unit.
-  // The retry action re-runs THIS whole sequence, never just the append: if the
-  // clear fails, retrying only the log with skipStaleCheck would append into the
-  // still-present stale draft and re-stamp the entry under the old date (the very
-  // corruption this flow exists to prevent).
-  const clearThenLog = useCallback(async (pending) => {
-    // Snapshot the stale draft's size before discarding it (same as the manual
-    // clear path) so session_cleared carries the abandonment magnitude.
-    const clearedCount = stampedSessionRef.current?.entries?.length ?? 0
+  const openExercise = useCallback(async (exercise) => {
+    const controller = new AbortController()
+    setDetail(exercise)
+    setDetailState('loading')
     try {
-      await controller.sessionWrite(() => null)
-      resetChatForNextSession()
-    } catch (err) {
-      retryActionRef.current = () => clearThenLog(pending)
-      window.mobius?.signal?.('error', {
-        message: err?.message || 'current session save failed',
-        source: 'session_clear',
-      })
-      return
+      const full = await fetchExerciseDetail(token, exercise, controller.signal)
+      setDetail(full)
+      const withMedia = await fetchExerciseMedia(token, full, controller.signal)
+      setDetail(withMedia)
+      setDetailState('ready')
+    } catch (error) {
+      setDetailState('error')
+      window.mobius?.signal?.('error', { source: 'exercise-detail', message: error.message })
     }
-    // session_cleared: the stale draft was discarded to log a newer-dated entry —
-    // the second abandonment path the launch drop-off metric must cover.
-    window.mobius?.signal?.('session_cleared', { reason: 'stale_replace', entry_count: clearedCount })
-    await commitQuickAdd(pending.draft, pending.ts, { skipStaleCheck: true })
-  }, [controller, commitQuickAdd, resetChatForNextSession])
+  }, [token])
 
-  const confirmStaleDraftReplace = useCallback(async () => {
-    const pending = staleDraftPrompt
-    closeStaleDraftPrompt()
-    if (!pending) return
-    await clearThenLog(pending)
-  }, [staleDraftPrompt, closeStaleDraftPrompt, clearThenLog])
-
-  const commitEditedEntry = useCallback((edited, ts) => {
-    if (!editingEntry) return
-    const sessionId = editingEntry.sessionId || assignSession(
-      (entries || []).filter((entry) => entry.id !== editingEntry.id),
-      ts,
-    )
-    const entry = normalizeEntry(edited, {
-      id: editingEntry.id,
-      ts,
-      sessionId,
-      raw: editingEntry.raw || '',
-      source: editingEntry.source || 'manual',
-      confirmed: true,
-    })
-    persist(
-      (entries || []).map((row) => (row.id === editingEntry.id ? entry : row)),
-      { upsertEntries: [entry] },
-    )
-    setEditingEntry(null)
-    setTab('history')
-  }, [editingEntry, entries, persist])
-
-  const deleteEntry = useCallback((id) => {
-    persist((entries || []).filter((e) => e.id !== id), { deletedIds: [id] })
-    window.mobius?.signal?.('item_deleted')
-  }, [entries, persist])
-
-  const deleteDraftEntry = useCallback(async (id) => {
-    if (!id) return
-    try {
-      await controller.sessionWrite((base) => {
-        if (!base) return null
-        // Reconcile the fresh write base's id-less entries against the ids the UI
-        // rendered (stampedSessionRef), so the tapped row's id matches a base
-        // entry on the FIRST interaction. reconcileDraftIds is a no-op once every
-        // entry already carries an id, so the normal (post-first-write) path is
-        // unchanged.
-        const reconciled = reconcileDraftIds(base, stampedSessionRef.current)
-        const rawEntries = Array.isArray(reconciled.entries) ? reconciled.entries : []
-        const nextEntries = rawEntries.filter((entry) => entry.id !== id)
-        if (nextEntries.length === 0) return null
-        return normalizeCurrentSession({ ...reconciled, entries: nextEntries }, reconciled.startedAt)
-      })
-      retryActionRef.current = null
-    } catch (err) {
-      retryActionRef.current = () => deleteDraftEntry(id)
-      window.mobius?.signal?.('error', {
-        message: err?.message || 'current session save failed',
-        source: 'draft_delete',
-      })
-    }
-  }, [controller])
-
-  // In-place edit of a live-session entry's metrics (the worksheet). Rides the
-  // SAME serialized sessionWrite path as delete-draft/quick-add: the transform
-  // receives the freshest merged draft, replaces the matching entry by id with a
-  // re-normalized copy (SI, from the worksheet's display-unit draft) preserving
-  // id/ts/sessionId, and re-normalizes the whole session. No new write path, so
-  // the CAS/merge/tombstone guarantees are untouched — a concurrent agent append
-  // or quick-add still merges in on the same chain. metricsDraft is in the loose
-  // display-unit "parsed" shape (same shape ConfirmCard builds); normalizeEntry
-  // converts it to SI.
-  const editSessionEntry = useCallback(async (entryId, metricsDraft) => {
-    if (!entryId) return
-    try {
-      await controller.sessionWrite((base) => {
-        if (!base) return base
-        // Same first-tap reconciliation as deleteDraftEntry: stamp the base's
-        // id-less entries with the rendered ids so entryId matches on the first
-        // edit. No-op once entries already carry ids.
-        const reconciled = reconcileDraftIds(base, stampedSessionRef.current)
-        const rawEntries = Array.isArray(reconciled.entries) ? reconciled.entries : []
-        const nextEntries = rawEntries.map((entry) => {
-          if (entry.id !== entryId) return entry
-          return normalizeEntry(
-            { category: entry.category, activity: entry.activity, metrics: metricsDraft },
-            {
-              id: entry.id,
-              ts: entry.ts,
-              sessionId: entry.sessionId,
-              raw: entry.raw || '',
-              source: entry.source || 'manual',
-              confirmed: entry.confirmed !== false,
-            },
-          )
-        })
-        return normalizeCurrentSession({ ...reconciled, entries: nextEntries }, reconciled.startedAt)
-      })
-      retryActionRef.current = null
-      // item_updated {type:'draft_entry'}: a worksheet edit landed durably, so
-      // Reflection can see the worksheet doing real completion work, not display.
-      window.mobius?.signal?.('item_updated', { type: 'draft_entry' })
-    } catch (err) {
-      retryActionRef.current = () => editSessionEntry(entryId, metricsDraft)
-      window.mobius?.signal?.('error', {
-        message: err?.message || 'current session save failed',
-        source: 'draft_edit',
-      })
-    }
-  }, [controller])
-
-  const clearCurrentSession = useCallback(async () => {
-    // Snapshot the draft size BEFORE the clear so session_cleared reports how much
-    // was abandoned (the drop-off magnitude), not the post-clear empty state.
-    const clearedCount = stampedSessionRef.current?.entries?.length ?? 0
-    try {
-      await controller.sessionWrite(() => null)
-      closeNestedNav()
-      resetChatForNextSession()
-      retryActionRef.current = null
-      // session_cleared: the user deliberately abandoned a live draft. Abandonment
-      // is the biggest launch drop-off metric, and the app instruments finishes
-      // and PRs but never this. reason separates it from the stale-draft replace.
-      window.mobius?.signal?.('session_cleared', { reason: 'manual', entry_count: clearedCount })
-    } catch (err) {
-      retryActionRef.current = clearCurrentSession
-      window.mobius?.signal?.('error', {
-        message: err?.message || 'current session save failed',
-        source: 'session_clear',
-      })
-    } finally {
-      // Always drop the confirm modal, even on a failed clear, so a rejected
-      // write can't leave the "Clear session?" dialog stuck open. The retry pill
-      // (retryActionRef) is the recovery path on failure, not a wedged modal.
-      setClearSessionPending(false)
-    }
-  }, [closeNestedNav, controller, resetChatForNextSession])
-
-  const finishCurrentSession = useCallback(async () => {
-    if (finishInFlightRef.current) return
-    if (!currentSessionReady(currentSession)) {
-      // finish_blocked {missing}: the user reached Finish but a required field is
-      // still empty (an incomplete agent-written entry, or a gap the worksheet
-      // hasn't filled). Reflection uses this to spot prompt/entry-completion gaps.
-      const normalized = normalizeCurrentSession(currentSession)
-      const missing = normalized && normalized.entries.length
-        ? (currentSessionMissing(normalized)[0] || 'unknown')
-        : 'empty'
-      window.mobius?.signal?.('finish_blocked', { missing })
-      return
-    }
-    // Snapshot for the post-commit signals BEFORE the controller clears state.
-    const finishedSession = currentSession
-    const prevEntries = entries || []
-    finishInFlightRef.current = true
-    setFinishing(true)
-    try {
-      // Finish is ONE indivisible intent on the controller's chain: it re-reads +
-      // merges the freshest draft, commits its ready entries to entries.json
-      // DURABLY (same tombstone-honoring writer as every other entries write, so
-      // it can't race a history delete/edit and resurrect/revert a row), and only
-      // THEN clears current_session.json. Because it runs serially with every
-      // load/quick-add, the load-vs-finish resurrection is impossible: a load
-      // either fully precedes finish (its write is superseded by finish's clear)
-      // or fully follows it (it reads the cleared file and writes nothing).
-      const { committed, entries: nextEntries } = await controller.finish()
-      if (committed.length === 0) return
-      retryActionRef.current = null
-      resetChatForNextSession()
-
-      setSavedRecap(buildSessionRecap(prevEntries, committed))
-
-      // session_logged: one signal per user "Finish session" gesture.
-      const durationMin = finishedSession
-        ? Math.round((Date.now() - (finishedSession.startedAt || Date.now())) / 60000)
-        : undefined
-      window.mobius?.signal?.('session_logged', {
-        exercise_count: committed.length,
-        ...(durationMin != null && durationMin > 0 ? { duration_min: durationMin } : {}),
-      })
-
-      // pr_hit: emit once per strength exercise that sets a new e1RM.
-      const prevPRs = strengthPRs(prevEntries)
-      const prevMap = new Map(prevPRs.map((pr) => [pr.activity, pr.e1rm]))
-      const nextPRs = strengthPRs(nextEntries || [])
-      for (const pr of nextPRs) {
-        const prev = prevMap.get(pr.activity)
-        if (prev == null || pr.e1rm > prev) {
-          window.mobius?.signal?.('pr_hit', { exercise: pr.activity })
-        }
-      }
-    } catch (err) {
-      retryActionRef.current = finishCurrentSession
-      window.mobius?.signal?.('error', {
-        message: err?.message || 'finish session failed',
-        source: 'finish',
-      })
-    } finally {
-      finishInFlightRef.current = false
-      setFinishing(false)
-    }
-  }, [controller, currentSession, entries, resetChatForNextSession])
-
-  const retryFailedSave = useCallback(() => {
-    const retry = retryActionRef.current
-    if (retry) {
-      retry()
-      return
-    }
-    syncStatus.refresh()
-  }, [syncStatus])
-
-  const toggleChat = useCallback(() => {
-    setChatOpen((open) => {
-      // Turning on always spawns a 50/50 split — the divider in the middle —
-      // regardless of where a previous drag left it.
-      if (!open) {
-        setChatRatio(0.5)
-        // chat_opened: fires on a closed→open transition so Reflection can tell
-        // whether the embedded-agent feature is used or quick-add carries the app.
-        window.mobius?.signal?.('chat_opened')
-      }
-      return !open
-    })
-  }, [])
-
-  const beginChatResize = useCallback((event) => {
-    event.preventDefault()
-    const body = bodyRef.current
-    if (!body) return
-    const total = body.getBoundingClientRect().height
-    if (!total) return
-    const startY = event.clientY
-    const startRatioPx = total * chatRatio
-    const divider = event.currentTarget
-    const pointerId = event.pointerId
-    divider.setPointerCapture?.(pointerId)
-    const onMove = (moveEvent) => {
-      // Px-bounded, not fractional: dragging all the way down collapses the
-      // chat to exactly the composer pill (CHAT_PANE_MIN_PX) and no smaller;
-      // dragging all the way up leaves at least one pill of content visible.
-      const desiredPx = startRatioPx + startY - moveEvent.clientY
-      setChatRatio(clampChatRatio(desiredPx, total, CHAT_PANE_MIN_PX))
-    }
-    // One teardown for every way the drag can end. pointerup is the normal
-    // case, but an interrupted drag (incoming notification, system gesture
-    // cancel, focus steal) fires pointercancel / lostpointercapture INSTEAD —
-    // without handling those the move listener and the pointer capture leak,
-    // leaving the divider stuck "grabbing" the pointer. releasePointerCapture
-    // throws if the id is no longer captured (e.g. lostpointercapture already
-    // released it), so it's guarded.
-    const endDrag = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
-      divider.removeEventListener('lostpointercapture', endDrag)
-      try { divider.releasePointerCapture?.(pointerId) } catch {}
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', endDrag)
-    window.addEventListener('pointercancel', endDrag)
-    divider.addEventListener('lostpointercapture', endDrag)
-  }, [chatRatio])
-
-  const handleResizeKey = useCallback((event) => {
-    const total = bodyRef.current?.getBoundingClientRect().height || 0
-    if (!total) return
-    // Same px floor as the drag path: Home collapses the chat to exactly the
-    // composer pill, End leaves one pill of content; Arrows step by ~6% but can
-    // never cross either floor (clampChatRatio enforces both ends).
-    const step = total * 0.06
-    if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      setChatRatio((r) => clampChatRatio(r * total + step, total, CHAT_PANE_MIN_PX))
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      setChatRatio((r) => clampChatRatio(r * total - step, total, CHAT_PANE_MIN_PX))
-    } else if (event.key === 'Home') {
-      event.preventDefault()
-      setChatRatio(clampChatRatio(0, total, CHAT_PANE_MIN_PX))
-    } else if (event.key === 'End') {
-      event.preventDefault()
-      setChatRatio(clampChatRatio(total, total, CHAT_PANE_MIN_PX))
-    }
-  }, [])
-
-  // Open the quick-add ConfirmCard. `ex` is a recentExercises row (has
-  // category + activity) or null for a blank new entry. `allEntries` is the
-  // current entries array, used to look up the last logged values.
-  const openQuickAdd = useCallback(async (ex, allEntries) => {
-    setSavedRecap(null)
-    closeNestedNav()
-    if (window.mobius?.nav?.open) {
-      const handle = window.mobius.nav.open('workout-quick-add', () => {
-        navHandleRef.current = null
-        setQuickAddDraft(null)
-        setLastEntryForQuickAdd(null)
-        closeStaleDraftPrompt()
-      })
-      navHandleRef.current = handle
-      await handle.ready?.catch(() => false)
-      if (navHandleRef.current !== handle) return
-    }
-    if (ex && allEntries) {
-      const last = lastEntryForExercise(allEntries, ex.category, ex.activity)
-      setLastEntryForQuickAdd(last)
-      setQuickAddDraft({ category: ex.category, activity: ex.activity, metrics: {} })
-    } else {
-      setLastEntryForQuickAdd(null)
-      setQuickAddDraft({ category: 'strength', activity: '', metrics: {} })
-    }
-  }, [closeNestedNav, closeStaleDraftPrompt])
-
-  const openEditEntry = useCallback(async (entry, nextTab = null) => {
-    if (!entry) return
-    closeNestedNav()
-    if (window.mobius?.nav?.open) {
-      const handle = window.mobius.nav.open('workout-edit', () => {
-        navHandleRef.current = null
-        setEditingEntry(null)
-      })
-      navHandleRef.current = handle
-      await handle.ready?.catch(() => false)
-      if (navHandleRef.current !== handle) return
-    }
-    if (nextTab) setTab(nextTab)
-    setEditingEntry(entry)
-  }, [closeNestedNav])
-
-  const openDeleteConfirm = useCallback(async (id) => {
-    if (!id) return
-    closeNestedNav()
-    if (window.mobius?.nav?.open) {
-      const handle = window.mobius.nav.open('workout-delete', () => {
-        navHandleRef.current = null
-        setDeletePending(null)
-      })
-      navHandleRef.current = handle
-      await handle.ready?.catch(() => false)
-      if (navHandleRef.current !== handle) return
-    }
-    setDeletePending(id)
-  }, [closeNestedNav])
-
-  const openClearSessionConfirm = useCallback(async () => {
-    closeNestedNav()
-    if (window.mobius?.nav?.open) {
-      const handle = window.mobius.nav.open('workout-clear-session', () => {
-        navHandleRef.current = null
-        setClearSessionPending(false)
-      })
-      navHandleRef.current = handle
-      await handle.ready?.catch(() => false)
-      if (navHandleRef.current !== handle) return
-    }
-    setClearSessionPending(true)
-  }, [closeNestedNav])
-
-  useEffect(() => {
-    if (editingEntry || deletePending || quickAddDraft || clearSessionPending || staleDraftPrompt) return
-    closeNestedNav()
-  }, [editingEntry, deletePending, quickAddDraft, clearSessionPending, staleDraftPrompt, closeNestedNav])
-
-  useEffect(() => () => {
-    closeStaleDraftNav()
-    closeNestedNav()
-  }, [closeStaleDraftNav, closeNestedNav])
-
-  if (bootStatus === 'loading') {
-    return <div className="wk-root"><style>{CSS}</style><div className="wk-loading">Loading…</div></div>
+  if (!state) {
+    return <div className="wk-root"><style>{CSS}</style><div className="wk-loading">Loading your training…</div></div>
   }
 
-  const subtitle = tab === 'session' ? (stampedSession?.entries?.length ? 'Session in progress.' : 'Ready to train.')
-    : tab === 'insights' ? 'See the shape of it.'
-    : 'Everything you\'ve logged.'
+  const active = state.activeWorkout
+  const start = (routine) => {
+    const next = { ...state, activeWorkout: startWorkout(routine) }
+    persist(next, `${routine?.name || 'Workout'} started`)
+    window.mobius?.signal?.('item_created', { type: 'workout' })
+  }
+  const updateActive = (transform) => persist({ ...state, activeWorkout: transform(state.activeWorkout) })
+  const completedSets = active?.exercises?.flatMap((exercise) => exercise.sets).filter((set) => set.completed && Number(set.reps) > 0).length || 0
+  const finish = () => {
+    if (!active || completedSets === 0) return
+    const session = finishWorkout(active)
+    persist({ ...state, activeWorkout: null, sessions: [...state.sessions, session] }, 'Workout saved')
+    window.mobius?.signal?.('workout_finished', { exercise_count: session.exercises.length, set_count: completedSets })
+  }
+  const discard = () => {
+    persist({ ...state, activeWorkout: null }, 'Workout discarded')
+    setDiscardOpen(false)
+    window.mobius?.signal?.('item_deleted', { type: 'workout-draft' })
+  }
 
-  // Chat is a session-tab affordance: the split renders only when the toggle is
-  // on, we're on the Session tab, and no full-screen card (edit/quick-add) owns
-  // the body. This single flag gates the header toggle-state, the body's split
-  // class + vars, and the divider/panel.
-  const chatOnSessionTab = chatOpen && tab === 'session' && !editingEntry && !quickAddDraft
+  const title = active ? active.name : tab === 'workout' ? 'Workout' : tab === 'history' ? 'History' : 'Exercises'
+  const subtitle = active
+    ? `${duration((Date.now() - new Date(active.startedAt)) / 1000)} · ${completedSets} sets done`
+    : tab === 'workout' ? 'Ready when you are.'
+      : tab === 'history' ? `${state.sessions.length} completed workouts`
+        : catalogStatus.state === 'loading' ? `Loading ${catalogStatus.loaded} of ${catalogStatus.total} exercises`
+          : catalogStatus.state === 'partial' ? `${catalogStatus.loaded} exercises saved`
+          : `${exercises.length} exercises`
 
   return (
     <div className="wk-root">
       <style>{CSS}</style>
-      <div className="wk-header">
-        <div className="wk-header-inner">
+      <header className="wk-header">
         <div className="wk-brand">
-          {/* Brand mark: the app's real glossy icon (downscaled + cached)
-              beside the shared app-name + status treatment. Falls back to an
-              accent tile when this install has no custom icon. */}
-          <img
-            src={`/api/apps/${appId}/icon?size=64`}
-            alt=""
-            width={34}
-            height={34}
-            className="wk-brand-icon"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-              const f = e.currentTarget.nextElementSibling
-              if (f) f.style.display = 'flex'
-            }}
-          />
-          <span className="wk-brand-fallback" style={{ display: 'none' }} aria-hidden="true">·</span>
-          <div className="wk-brand-text">
-            <h1 className="wk-brand-name">Workout</h1>
-            <p className="wk-subtitle">{subtitle}</p>
-          </div>
+          <div className="wk-brand-text"><h1 className="wk-title">{title}</h1><span className="wk-subtitle">{subtitle}</span></div>
         </div>
-        <div className="wk-header-actions">
-          <SyncPill status={syncStatus} onRetry={retryFailedSave} />
-          {!editingEntry && !quickAddDraft && tab === 'session' && (
-            <button
-              type="button"
-              className="wk-icon-btn wk-chat-toggle"
-              aria-label={chatOpen ? 'Close chat' : 'Open chat'}
-              aria-pressed={chatOpen}
-              title={chatOpen ? 'Close chat' : 'Open chat'}
-              onClick={toggleChat}
-            >
-              <ChatBubbleIcon size={22} />
-            </button>
-          )}
-        </div>
-        </div>
-      </div>
+        {active && <div className="wk-header-right"><button className="wk-btn wk-btn-ghost" onClick={() => setDiscardOpen(true)}>Discard</button><button className="wk-btn wk-btn-primary" disabled={completedSets === 0} onClick={finish}>Finish</button></div>}
+      </header>
 
-      {!editingEntry && !quickAddDraft && (
-        <nav className="wk-tabbar" role="tablist" aria-label="Workout sections">
-          <button ref={(node) => { tabRefs.current[0] = node }} id="wk-tab-session" type="button" role="tab"
-            className={`wk-tab-btn${tab === 'session' ? ' is-active' : ''}`} onClick={() => selectTab('session')}
-            onKeyDown={(event) => onTabKeyDown(event, 0)} aria-selected={tab === 'session'}
-            aria-controls="wk-panel-session" tabIndex={tab === 'session' ? 0 : -1} aria-label="Session">
-            <span className="wk-tab-icon" aria-hidden><SportIcon name="stopwatch" size={15} /></span>Session
-          </button>
-          <button ref={(node) => { tabRefs.current[1] = node }} id="wk-tab-history" type="button" role="tab"
-            className={`wk-tab-btn${tab === 'history' ? ' is-active' : ''}`} onClick={() => selectTab('history')}
-            onKeyDown={(event) => onTabKeyDown(event, 1)} aria-selected={tab === 'history'}
-            aria-controls="wk-panel-history" tabIndex={tab === 'history' ? 0 : -1} aria-label="History">
-            <span className="wk-tab-icon" aria-hidden><SportIcon name="history" size={15} /></span>History
-          </button>
-          <button ref={(node) => { tabRefs.current[2] = node }} id="wk-tab-insights" type="button" role="tab"
-            className={`wk-tab-btn${tab === 'insights' ? ' is-active' : ''}`}
-            onClick={() => selectTab('insights')} onKeyDown={(event) => onTabKeyDown(event, 2)}
-            aria-selected={tab === 'insights'} aria-controls="wk-panel-insights"
-            tabIndex={tab === 'insights' ? 0 : -1} aria-label="Insights">
-            <span className="wk-tab-icon" aria-hidden><SportIcon name="chart-bar" size={15} /></span>Insights
-          </button>
-        </nav>
-      )}
+      {!active && <nav className="wk-seg" role="tablist" aria-label="Workout sections">
+        {[['workout', 'Workout'], ['history', 'History'], ['exercises', 'Exercises']].map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={`wk-seg-btn${tab === id ? ' is-active' : ''}`} onClick={() => setTab(id)}>{label}</button>
+        ))}
+      </nav>}
 
-      <div
-        ref={bodyRef}
-        className={`wk-body${chatOnSessionTab ? ' wk-body--chat-open' : ''}`}
-        style={chatOnSessionTab
-          ? { '--chat-ratio': chatRatio, '--chat-pane-min': `${CHAT_PANE_MIN_PX}px` }
-          : undefined}
-      >
-        <div className="wk-scroll">
-          <div
-            className="wk-inner"
-            role={!editingEntry && !quickAddDraft ? 'tabpanel' : undefined}
-            id={!editingEntry && !quickAddDraft ? `wk-panel-${tab}` : undefined}
-            aria-labelledby={!editingEntry && !quickAddDraft ? `wk-tab-${tab}` : undefined}
-          >
-            {editingEntry ? (
-              <ConfirmCard
-                draft={draftFromStoredEntry(editingEntry)}
-                ambiguous={!editingEntry.confirmed}
-                clarification={!editingEntry.confirmed ? 'Some fields may still be n/a.' : ''}
-                initialTs={editingEntry.ts}
-                title="Edit log entry"
-                commitLabel="Save changes"
-                onCommit={commitEditedEntry}
-                onCancel={() => {
-                  closeNestedNav()
-                  setEditingEntry(null)
-                }}
-              />
-            ) : quickAddDraft ? (
-              <ConfirmCard
-                draft={quickAddDraft}
-                ambiguous={false}
-                clarification=""
-                initialTs={Date.now()}
-                title="Add exercise"
-                commitLabel="Add to session"
-                helperText="Set the details now or finish them in the worksheet. It reaches History when you finish the session."
-                collapseTiming
-                lastEntry={lastEntryForQuickAdd}
-                onCommit={commitQuickAdd}
-                onCancel={() => {
-                  closeNestedNav()
-                  setQuickAddDraft(null)
-                  setLastEntryForQuickAdd(null)
-                }}
-              />
-            ) : (
-              <>
-                {tab === 'session' && (
-                  <>
-                    {savedRecap && (
-                      <section className="wk-session-recap" role="status" aria-label="Saved session progress">
-                        <div className="wk-session-recap-head">
-                          <div>
-                            <strong>Session saved</strong>
-                            <span>What changed, exercise by exercise.</span>
-                          </div>
-                          <button type="button" className="wk-icon-btn" onClick={() => setSavedRecap(null)} aria-label="Dismiss session recap">
-                            <X width="1em" height="1em" aria-hidden="true" />
-                          </button>
-                        </div>
-                        <div className="wk-session-recap-list">
-                          {savedRecap.map((row) => (
-                            <div key={row.key} className={`wk-recap-row is-${row.tone}`}>
-                              <span className="wk-recap-icon" style={{ background: `${row.color}22` }} aria-hidden>
-                                <SportIcon name={row.icon} color={row.color} size={17} />
-                              </span>
-                              <span className="wk-recap-copy">
-                                <strong>{row.activity}</strong>
-                                <small>{row.headline} · {row.detail || 'Logged'}</small>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    )}
-                    <div className={`wk-session-layout${hasDraftEntries ? '' : ' is-empty'}`}>
-                      {hasDraftEntries && (
-                        <div className="wk-session-main">
-                          <CurrentSessionPanel
-                            session={stampedSession}
-                            historyEntries={entries}
-                            onFinish={finishCurrentSession}
-                            onDeleteEntry={deleteDraftEntry}
-                            onEditEntry={editSessionEntry}
-                            onClear={openClearSessionConfirm}
-                            finishing={finishing}
-                          />
-                        </div>
-                      )}
-                      <div className="wk-session-side">
-                        {/* Quick-add stays visible during an active session — it
-                            appends to the draft, so the next tap logs entry #2. */}
-                        <QuickAddStrip
-                          entries={entries}
-                          onQuickAdd={openQuickAdd}
-                          hasActiveEntries={hasDraftEntries}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-                {tab === 'history' && (
-                  <AllTab
-                    entries={entries}
-                    onDelete={openDeleteConfirm}
-                    onEdit={(entry) => openEditEntry(entry, 'history')}
-                  />
-                )}
-                {tab === 'insights' && (
-                  <InsightsTab entries={entries} />
-                )}
-              </>
-            )}
-          </div>
-        </div>
+      <main className="wk-scroll">
+        {active
+          ? <ActiveWorkout active={active} state={state} exercises={exercises} update={updateActive} openExercise={openExercise} />
+          : tab === 'workout'
+            ? <WorkoutHome state={state} exercises={exercises} start={start} createRoutine={() => setBuilder({ id: crypto.randomUUID(), name: 'New routine', exercises: [] })} />
+            : tab === 'history'
+              ? <History state={state} />
+              : <ExerciseLibrary exercises={exercises} catalogStatus={catalogStatus} openExercise={openExercise} retryCatalog={() => {
+                catalogSyncStarted.current = false
+                setCatalogSyncNonce((current) => current + 1)
+              }} />}
+      </main>
 
-        {tab === 'session' && !editingEntry && !quickAddDraft && !chatOnSessionTab && (
-          <div className="wk-mobile-action-dock">
-            <button type="button" onClick={() => openQuickAdd(null, null)}>
-              <Plus aria-hidden="true" />
-              Add activity
-            </button>
-          </div>
-        )}
-
-        {chatOnSessionTab && (
-          <>
-            <div
-              className="wk-chat-divider"
-              role="separator"
-              aria-label="Resize workout chat"
-              aria-orientation="horizontal"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(chatRatio * 100)}
-              tabIndex={0}
-              onPointerDown={beginChatResize}
-              onKeyDown={handleResizeKey}
-            >
-              <span className="wk-chat-divider-bar" aria-hidden="true" />
-            </div>
-            <AgentChatPanel
-              appId={appId}
-              token={token}
-              store={store}
-              onEntriesMaybeChanged={() => {
-                loadEntries({ allowMigration: false })
-                loadCurrentSession()
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      {deletePending && (
-        <ConfirmModal
-          title="Delete this entry?"
-          body="It will be removed from your log and analytics. This can't be undone."
-          confirmLabel="Delete"
-          onConfirm={() => { deleteEntry(deletePending); closeNestedNav(); setDeletePending(null) }}
-          onCancel={() => { closeNestedNav(); setDeletePending(null) }}
-        />
-      )}
-      {clearSessionPending && (
-        <ConfirmModal
-          title="Clear current session?"
-          body="This removes the draft workout. Finished history is not changed."
-          confirmLabel="Clear"
-          onConfirm={clearCurrentSession}
-          onCancel={() => { closeNestedNav(); setClearSessionPending(false) }}
-        />
-      )}
-      {staleDraftPrompt && (
-        <ConfirmModal
-          title="Start a new session?"
-          body={`Your current session is from ${staleDraftPrompt.oldDate}. Logging this ${staleDraftPrompt.newDate} entry discards that unfinished draft and starts a new session.`}
-          confirmLabel="Discard & log"
-          onConfirm={confirmStaleDraftReplace}
-          onCancel={closeStaleDraftPrompt}
-        />
-      )}
+      {saveState === 'error' && <div className="wk-sync-pill is-error">Not saved</div>}
+      {detail && <ExerciseDetail exercise={detail} state={detailState} close={() => setDetail(null)} />}
+      {builder && <RoutineBuilder value={builder} setValue={setBuilder} exercises={exercises} close={() => setBuilder(null)} save={() => {
+        const routine = { ...builder, updatedAt: new Date().toISOString() }
+        persist({ ...state, routines: [...state.routines, routine] }, 'Routine saved')
+        setBuilder(null)
+        window.mobius?.signal?.('item_created', { type: 'routine' })
+      }} />}
+      {discardOpen && <ConfirmDiscard cancel={() => setDiscardOpen(false)} confirm={discard} />}
+      {toast && <div className="wk-toast" role="status">{toast}</div>}
     </div>
   )
+}
+
+function WorkoutHome({ state, exercises, start, createRoutine }) {
+  return <>
+    <section className="wk-section">
+      <h2 className="wk-section-title">Quick start</h2>
+      <div className="wk-quick-actions">
+        <button className="wk-btn wk-btn-secondary wk-btn-block" onClick={() => start(null)}><Plus size={17} />Start empty workout</button>
+        <button className="wk-btn wk-btn-secondary wk-btn-block" onClick={createRoutine}><Plus size={17} />New routine</button>
+      </div>
+    </section>
+    <section className="wk-section">
+      <div className="wk-section-heading"><h2 className="wk-section-title">Routines</h2><span>{state.routines.length} saved</span></div>
+      <div className="wk-routine-list">{state.routines.map((routine) => (
+        <article className="wk-routine" key={routine.id}>
+          <div className="wk-routine-main"><h3>{routine.name}</h3><p>{routine.exercises.map((item) => findExercise(state, item.exerciseId, exercises).name).join(', ') || 'No exercises yet'}</p></div>
+          <button className="wk-btn wk-btn-primary" disabled={routine.exercises.length === 0} onClick={() => start(routine)}>Start routine</button>
+        </article>
+      ))}</div>
+    </section>
+  </>
+}
+
+function ActiveWorkout({ active, state, exercises, update, openExercise }) {
+  const [adding, setAdding] = useState(false)
+  const [query, setQuery] = useState('')
+  const addExercise = (exercise) => {
+    update((current) => ({ ...current, exercises: [...current.exercises, {
+      exerciseId: exercise.id, restSeconds: 90,
+      sets: [{ id: crypto.randomUUID(), weight: '', reps: '', completed: false }],
+    }] }))
+    setAdding(false)
+    setQuery('')
+  }
+  return <>
+    {active.exercises.length === 0 && <div className="wk-empty"><div className="wk-empty-title">Add your first exercise</div><p className="wk-empty-text">Build this workout as you go. It stays recoverable until you finish or discard it.</p></div>}
+    {active.exercises.map((item, exerciseIndex) => {
+      const exercise = findExercise(state, item.exerciseId, exercises)
+      const previous = lastSetsFor(state, exercise.id)
+      return <section className="wk-active-exercise" key={`${exercise.id}-${exerciseIndex}`}>
+        <div className="wk-exercise-heading"><ExerciseMark exercise={exercise} /><button onClick={() => openExercise(exercise)}><strong>{exercise.name}</strong><span>Rest {item.restSeconds || 90}s · View exercise</span></button></div>
+        <div className="wk-set-head"><span>Set</span><span>Previous</span><span>{state.preferences.unit}</span><span>Reps</span><span>Done</span></div>
+        {item.sets.map((set, setIndex) => <div className={`wk-set-row${set.completed ? ' is-complete' : ''}`} key={set.id}>
+          <span className="wk-set-number">{setIndex + 1}</span>
+          <span className="wk-previous">{previous[setIndex] ? `${previous[setIndex].weight || '—'} × ${previous[setIndex].reps || '—'}` : '—'}</span>
+          {['weight', 'reps'].map((field) => <input key={field} className="wk-input wk-set-input" inputMode="decimal" aria-label={`${field} set ${setIndex + 1} for ${exercise.name}`} value={set[field]} onChange={(event) => update((current) => ({ ...current, exercises: current.exercises.map((candidate, index) => index === exerciseIndex ? { ...candidate, sets: candidate.sets.map((row) => row.id === set.id ? { ...row, [field]: event.target.value, completed: field === 'reps' && Number(event.target.value) <= 0 ? false : row.completed } : row) } : candidate) }))} />)}
+          <button className={`wk-check${set.completed ? ' is-complete' : ''}`} disabled={!set.completed && Number(set.reps) <= 0} title={!set.completed && Number(set.reps) <= 0 ? 'Enter reps before marking this set done' : undefined} aria-label={!set.completed && Number(set.reps) <= 0 ? `Enter reps before marking set ${setIndex + 1} complete` : `${set.completed ? 'Unmark' : 'Mark'} set ${setIndex + 1} complete`} onClick={() => update((current) => ({ ...current, exercises: current.exercises.map((candidate, index) => index === exerciseIndex ? { ...candidate, sets: candidate.sets.map((row) => row.id === set.id ? { ...row, completed: !row.completed } : row) } : candidate) }))}><Check size={18} /></button>
+        </div>)}
+        <button className="wk-add-set" onClick={() => update((current) => ({ ...current, exercises: current.exercises.map((candidate, index) => index === exerciseIndex ? { ...candidate, sets: [...candidate.sets, { id: crypto.randomUUID(), weight: '', reps: '', completed: false }] } : candidate) }))}><Plus size={16} />Add set</button>
+      </section>
+    })}
+    {adding
+      ? <ExercisePicker exercises={exercises} query={query} setQuery={setQuery} choose={addExercise} cancel={() => setAdding(false)} />
+      : <button className="wk-btn wk-btn-secondary wk-btn-block" onClick={() => setAdding(true)}><Plus size={17} />Add exercise</button>}
+  </>
+}
+
+function ExercisePicker({ exercises, query, setQuery, choose, cancel }) {
+  const results = exercises.filter((exercise) => exerciseSearchText(exercise).includes(query.trim().toLowerCase())).slice(0, 40)
+  return <section className="wk-picker" aria-label="Choose an exercise">
+    <div className="wk-picker-head"><input autoFocus className="wk-input" aria-label="Search exercises" placeholder="Search exercises, muscles, equipment" value={query} onChange={(event) => setQuery(event.target.value)} /><button className="wk-btn wk-btn-icon" onClick={cancel} aria-label="Close exercise picker"><X size={18} /></button></div>
+    <div className="wk-exercise-list">{results.map((exercise) => <button className="wk-exercise-row" key={exercise.id} onClick={() => choose(exercise)}><div><strong>{exercise.name}</strong><span>{exercise.target} · {exercise.equipment}</span></div><span className="wk-row-action">Add</span></button>)}</div>
+  </section>
+}
+
+function ExerciseLibrary({ exercises, catalogStatus, openExercise, retryCatalog }) {
+  const [query, setQuery] = useState('')
+  const [muscle, setMuscle] = useState('All')
+  const [equipment, setEquipment] = useState('All')
+  const [limit, setLimit] = useState(EXERCISE_PAGE_SIZE)
+  useEffect(() => setLimit(EXERCISE_PAGE_SIZE), [query, muscle, equipment])
+  const muscles = useMemo(() => ['All', ...new Set(exercises.map((exercise) => exercise.target).filter(Boolean))].sort(), [exercises])
+  const equipmentOptions = useMemo(() => ['All', ...new Set(exercises.map((exercise) => exercise.equipment).filter(Boolean))].sort(), [exercises])
+  const filtered = exercises.filter((exercise) => (muscle === 'All' || exercise.target === muscle) && (equipment === 'All' || exercise.equipment === equipment) && exerciseSearchText(exercise).includes(query.trim().toLowerCase()))
+  return <section aria-label="Exercise library">
+    <input className="wk-input wk-search" type="search" aria-label="Search exercises" placeholder="Search exercises, muscles, equipment" value={query} onChange={(event) => setQuery(event.target.value)} />
+    <div className="wk-filter-row" role="group" aria-label="Filter exercises">
+      <label><span className="wk-sr-only">Target muscle</span><select className="wk-select" value={muscle} onChange={(event) => setMuscle(event.target.value)}>{muscles.map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label><span className="wk-sr-only">Equipment</span><select className="wk-select" value={equipment} onChange={(event) => setEquipment(event.target.value)}>{equipmentOptions.map((value) => <option key={value}>{value}</option>)}</select></label>
+    </div>
+    <div className="wk-library-summary"><span>{filtered.length} matching exercises</span>{catalogStatus.state === 'loading' && <span>Syncing {catalogStatus.loaded}/{catalogStatus.total}</span>}{catalogStatus.state === 'partial' && <span>{catalogStatus.loaded} saved</span>}{catalogStatus.state === 'error' && <span>Catalogue unavailable</span>}</div>
+    {(catalogStatus.state === 'partial' || catalogStatus.state === 'error') && <div className="wk-catalog-resume"><p>{catalogStatus.loaded ? 'Loading paused, but everything already saved is ready to use.' : 'The full exercise catalogue could not load yet.'}</p><button className="wk-btn wk-btn-secondary" onClick={retryCatalog}>Continue loading</button></div>}
+    <div className="wk-exercise-list">{filtered.slice(0, limit).map((exercise) => <button className="wk-exercise-row" key={exercise.id} onClick={() => openExercise(exercise)}><div><strong>{exercise.name}</strong><span>{exercise.target} · {exercise.equipment}</span></div><span className="wk-row-action">View</span></button>)}</div>
+    {limit < filtered.length && <button className="wk-btn wk-btn-secondary wk-btn-block wk-load-more" onClick={() => setLimit((current) => current + EXERCISE_PAGE_SIZE)}>Show {Math.min(EXERCISE_PAGE_SIZE, filtered.length - limit)} more</button>}
+    <p className="wk-credit">Exercise data and animated demonstrations from <a href="https://oss.exercisedb.dev/docs" target="_blank" rel="noreferrer">{EXERCISEDB_CREDIT}</a>.</p>
+  </section>
+}
+
+function ExerciseDetail({ exercise, state, close }) {
+  return <div className="wk-detail" role="dialog" aria-modal="true" aria-label={exercise.name}>
+    <header className="wk-header"><div className="wk-brand"><ExerciseMark exercise={exercise} /><div className="wk-brand-text"><h2 className="wk-title">{exercise.name}</h2><span className="wk-subtitle">{exercise.target} · {exercise.equipment}</span></div></div><div className="wk-header-right"><button className="wk-btn wk-btn-icon" onClick={close} aria-label="Close exercise"><X size={19} /></button></div></header>
+    <div className="wk-detail-scroll">
+      {exercise.imageData ? <img className="wk-gif" src={exercise.imageData} alt={`${exercise.name} animated demonstration`} /> : <div className="wk-media-state">{state === 'loading' ? 'Loading demonstration…' : 'Demonstration unavailable'}</div>}
+      <dl className="wk-detail-facts"><div><dt>Target</dt><dd>{exercise.target}</dd></div><div><dt>Body part</dt><dd>{exercise.bodyPart}</dd></div><div><dt>Equipment</dt><dd>{exercise.equipment}</dd></div></dl>
+      <h3>How to perform</h3>
+      {exercise.instructions?.length ? <ol className="wk-instructions">{exercise.instructions.map((instruction, index) => <li key={index}>{instruction.replace(/^Step:\d+\s*/, '')}</li>)}</ol> : <p className="wk-muted-copy">Instructions are unavailable for this exercise.</p>}
+      <p className="wk-credit">Exercise data and animation from <a href="https://oss.exercisedb.dev/docs" target="_blank" rel="noreferrer">{EXERCISEDB_CREDIT}</a>.</p>
+    </div>
+  </div>
+}
+
+function RoutineBuilder({ value, setValue, exercises, close, save }) {
+  const [picking, setPicking] = useState(false)
+  const [query, setQuery] = useState('')
+  const choose = (exercise) => {
+    setValue((current) => ({ ...current, exercises: [...current.exercises, { exerciseId: exercise.id, sets: 3, targetReps: 8, restSeconds: 90 }] }))
+    setPicking(false)
+    setQuery('')
+  }
+  return <div className="wk-detail" role="dialog" aria-modal="true" aria-label="Routine builder">
+    <header className="wk-header"><div className="wk-brand"><div className="wk-brand-text"><h2 className="wk-title">Build routine</h2><span className="wk-subtitle">Reusable sets, reps, and rest</span></div></div><div className="wk-header-right"><button className="wk-btn wk-btn-icon" onClick={close} aria-label="Close routine builder"><X size={19} /></button><button className="wk-btn wk-btn-primary" disabled={!value.name.trim() || value.exercises.length === 0} onClick={save}>Save</button></div></header>
+    <div className="wk-detail-scroll">
+      <label className="wk-field"><span>Routine name</span><input className="wk-input" value={value.name} onChange={(event) => setValue({ ...value, name: event.target.value })} /></label>
+      <div className="wk-builder-list">{value.exercises.map((item, index) => {
+        const exercise = exercises.find((candidate) => candidate.id === item.exerciseId)
+        return <div className="wk-builder-item" key={`${item.exerciseId}-${index}`}><div className="wk-builder-name"><strong>{exercise?.name}</strong><span>{exercise?.target} · {exercise?.equipment}</span></div><label><span>Sets</span><input className="wk-input" inputMode="numeric" aria-label={`Sets for ${exercise?.name}`} value={item.sets} onChange={(event) => updateRoutineExercise(setValue, index, 'sets', event.target.value)} /></label><label><span>Reps</span><input className="wk-input" inputMode="numeric" aria-label={`Reps for ${exercise?.name}`} value={item.targetReps} onChange={(event) => updateRoutineExercise(setValue, index, 'targetReps', event.target.value)} /></label><button className="wk-btn wk-btn-icon" aria-label={`Remove ${exercise?.name}`} onClick={() => setValue((current) => ({ ...current, exercises: current.exercises.filter((_, candidateIndex) => candidateIndex !== index) }))}><Trash size={17} /></button></div>
+      })}</div>
+      {picking ? <ExercisePicker exercises={exercises} query={query} setQuery={setQuery} choose={choose} cancel={() => setPicking(false)} /> : <button className="wk-btn wk-btn-secondary wk-btn-block" onClick={() => setPicking(true)}><Plus size={17} />Add exercise</button>}
+    </div>
+  </div>
+}
+
+function History({ state }) {
+  if (!state.sessions.length) return <div className="wk-empty"><div className="wk-empty-title">Your history starts here</div><p className="wk-empty-text">Finish a workout and every completed set will appear as a structured record.</p></div>
+  return <div className="wk-history">{[...state.sessions].reverse().map((session) => <article className="wk-history-row" key={session.id}><div><h3>{session.name}</h3><p>{new Date(session.finishedAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</p></div><div className="wk-history-stats"><span>{duration(session.durationSeconds)}</span><span>{session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.completed).length} sets</span><span>{Math.round(volume(session))} {state.preferences.unit}</span></div></article>)}</div>
+}
+
+function ConfirmDiscard({ cancel, confirm }) {
+  return <div className="wk-scrim" role="dialog" aria-modal="true" aria-label="Discard workout" onClick={cancel}><div className="wk-sheet" onClick={(event) => event.stopPropagation()}><h3 className="wk-sheet-title">Discard this workout?</h3><p className="wk-sheet-body">The in-progress sets will be removed. Completed workout history and routines stay untouched.</p><div className="wk-sheet-actions"><button className="wk-btn wk-btn-secondary" onClick={cancel}>Keep workout</button><button className="wk-btn wk-btn-danger" onClick={confirm}>Discard</button></div></div></div>
+}
+
+function exerciseSearchText(exercise) {
+  return [exercise.name, exercise.target, exercise.bodyPart, exercise.equipment, ...(exercise.secondaryMuscles || [])].join(' ').toLowerCase()
+}
+
+function updateRoutineExercise(setValue, index, field, rawValue) {
+  const value = Math.max(1, Math.min(99, Number(rawValue) || 1))
+  setValue((current) => ({ ...current, exercises: current.exercises.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item) }))
 }
